@@ -22,6 +22,7 @@ export interface StockData {
   ebitda_ttm: number | null;
   ev_ebitda: number | null;
   cash_and_equivalents: number | null;
+  total_liabilities: number | null;
   currency: string;
 }
 
@@ -219,7 +220,7 @@ export async function fetchStockData(
     const shares_outstanding = parseMetricValue(raw['shares_outstanding']);
     const shareholders_equity = parseMetricValue(raw['shareholders_equity_quarterly']);
     const ebitda_ttm = parseMetricValue(raw['ebitda_ttm']);
-    const total_debt = parseMetricValue(raw['total_debt_quarterly']);
+    const total_liabilities = parseMetricValue(raw['total_liabilities_quarterly']);
     const cash_and_equivalents = parseMetricValue(raw['cash_and_equivalents_quarterly']);
 
     // Price: listing page (real-time) → individual page RSC → null
@@ -252,10 +253,10 @@ export async function fetchStockData(
 
     const earnings_yield = pe_ratio && pe_ratio !== 0 ? (1 / pe_ratio) * 100 : null;
 
-    // EV/EBITDA = (Market Cap + Total Debt - Cash) / EBITDA TTM
+    // EV/EBITDA = (Market Cap + Total Liabilities - Cash) / EBITDA TTM
     const ev_ebitda =
-      market_cap !== null && total_debt !== null && ebitda_ttm && ebitda_ttm !== 0
-        ? (market_cap + total_debt - (cash_and_equivalents ?? 0)) / ebitda_ttm
+      market_cap !== null && total_liabilities !== null && ebitda_ttm && ebitda_ttm !== 0
+        ? (market_cap + total_liabilities - (cash_and_equivalents ?? 0)) / ebitda_ttm
         : null;
 
     // Skip if we got essentially nothing useful
@@ -289,6 +290,7 @@ export async function fetchStockData(
       ebitda_ttm,
       ev_ebitda,
       cash_and_equivalents,
+      total_liabilities,
       currency: 'EUR',
     };
   } catch (err) {
