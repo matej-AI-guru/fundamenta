@@ -45,6 +45,7 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [mobileTab, setMobileTab] = useState<'filters' | 'stocks'>('stocks');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -136,8 +137,8 @@ export default function Home() {
       {/* Main — fills remaining viewport height */}
       <div className="flex-1 overflow-hidden flex flex-col">
         <div className="h-full max-w-[1400px] mx-auto w-full px-4 sm:px-6 flex flex-col">
-          {/* Heading */}
-          <div className="py-5 flex-shrink-0">
+          {/* Heading — desktop only */}
+          <div className="hidden lg:block py-5 flex-shrink-0">
             <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 tracking-tight mb-1">
               Filtriranje dionica
             </h1>
@@ -146,10 +147,32 @@ export default function Home() {
             </p>
           </div>
 
+          {/* Mobile tab switcher */}
+          <div className="lg:hidden flex-shrink-0 pt-3 pb-3">
+            <div className="flex rounded-xl bg-gray-100 p-1">
+              <button
+                onClick={() => setMobileTab('filters')}
+                className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
+                  mobileTab === 'filters' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
+                }`}
+              >
+                Filteri{countActiveFilters(filters) > 0 ? ` (${countActiveFilters(filters)})` : ''}
+              </button>
+              <button
+                onClick={() => setMobileTab('stocks')}
+                className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
+                  mobileTab === 'stocks' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
+                }`}
+              >
+                Dionice ({stocks.length})
+              </button>
+            </div>
+          </div>
+
           {/* Content row — fills remaining height */}
           <div className="flex-1 overflow-hidden flex flex-col lg:flex-row gap-6 pb-4">
             {/* Filter sidebar — scrolls independently */}
-            <div className="w-full lg:w-80 xl:w-96 flex-shrink-0 overflow-y-auto">
+            <div className={`w-full lg:w-80 xl:w-96 flex-shrink-0 overflow-y-auto ${mobileTab === 'filters' ? 'flex flex-col' : 'hidden'} lg:flex lg:flex-col`}>
               <FilterPanel
                 filters={filters}
                 onChange={handleFiltersChange}
@@ -159,7 +182,7 @@ export default function Home() {
             </div>
 
             {/* Results — fills remaining width and height */}
-            <div className="flex-1 min-w-0 overflow-hidden flex flex-col">
+            <div className={`flex-1 min-w-0 overflow-hidden ${mobileTab === 'stocks' ? 'flex flex-col' : 'hidden'} lg:flex lg:flex-col`}>
               <StockTable stocks={stocks} isLoading={isLoading} />
             </div>
           </div>
