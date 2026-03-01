@@ -122,7 +122,7 @@ export default function FilterPanel({ filters, onChange, onReset, activeCount }:
           value={[filters.ev_ebitda_min ?? null, filters.ev_ebitda_max ?? null]}
           onChange={setRange('ev_ebitda_min', 'ev_ebitda_max')}
           formatValue={fmtX}
-          description="Poduzetnička vrijednost / EBITDA (TTM)"
+          description="Vrijednost poduzeća / EBITDA (TTM)"
         />
       </div>
 
