@@ -142,7 +142,7 @@ export default function StockTable({ stocks, isLoading }: StockTableProps) {
         <table className="w-full text-xs sm:text-sm">
           <thead className="sticky top-0 z-30">
             <tr className="border-b border-gray-100 bg-white">
-              <th className="pl-3 pr-1 py-2 sm:pl-6 sm:pr-2 sm:py-3 text-left sticky left-0 bg-white z-20" />
+              <th className="pl-3 pr-1 py-2 sm:pl-6 sm:pr-2 sm:py-3 text-left sticky left-0 bg-white z-20 w-8 sm:w-12" />
               {COLUMNS.map((col) => (
                 <th
                   key={col.key}
@@ -150,7 +150,7 @@ export default function StockTable({ stocks, isLoading }: StockTableProps) {
                   className={`px-2 py-2 sm:px-4 sm:py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide
                               cursor-pointer hover:text-gray-700 select-none whitespace-nowrap transition-colors bg-white
                               ${col.align === 'right' ? 'text-right' : 'text-left'}
-                              ${col.key === 'ticker' ? 'sticky left-8 sm:left-12 z-20' : ''}
+                              ${col.key === 'ticker' ? 'sticky left-8 sm:left-12 z-20 border-r border-gray-100' : ''}
                               ${col.hideOnMobile ? 'hidden sm:table-cell' : ''}`}
                 >
                   <span className="inline-flex items-center gap-1">
@@ -173,7 +173,7 @@ export default function StockTable({ stocks, isLoading }: StockTableProps) {
             {sorted.map((stock) => (
               <tr key={stock.ticker} className="hover:bg-gray-50 transition-colors group">
                 {/* Watchlist star */}
-                <td className="pl-3 pr-1 py-2 sm:pl-6 sm:pr-2 sm:py-3 sticky left-0 z-10 bg-white group-hover:bg-gray-50">
+                <td className="pl-3 pr-1 py-2 sm:pl-6 sm:pr-2 sm:py-3 sticky left-0 z-10 bg-white group-hover:bg-gray-50 w-8 sm:w-12">
                   <button
                     onClick={() => toggleWatchlist(stock.ticker)}
                     className={`transition-colors ${
@@ -193,7 +193,7 @@ export default function StockTable({ stocks, isLoading }: StockTableProps) {
                     key={col.key}
                     className={`px-2 py-2 sm:px-4 sm:py-3 whitespace-nowrap ${
                       col.align === 'right' ? 'text-right' : ''
-                    } ${col.key === 'ticker' ? 'font-semibold text-gray-900 sticky left-8 sm:left-12 z-10 bg-white group-hover:bg-gray-50' : 'text-gray-600'}
+                    } ${col.key === 'ticker' ? 'font-semibold text-gray-900 sticky left-8 sm:left-12 z-10 bg-white group-hover:bg-gray-50 border-r border-gray-100' : 'text-gray-600'}
                     ${col.key === 'name' ? 'max-w-[120px] sm:max-w-[200px] truncate' : ''}
                     ${col.hideOnMobile ? 'hidden sm:table-cell' : ''}
                     ${getColorClass(col.key, stock)}`}
