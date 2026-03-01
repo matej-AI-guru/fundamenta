@@ -115,7 +115,7 @@ export default function FilterPanel({ filters, onChange, onReset, activeCount }:
         />
 
         <RangeSlider
-          label="EV/EBITDA"
+          label="EV / EBITDA (TTM)"
           min={0}
           max={50}
           step={0.1}

@@ -30,7 +30,7 @@ const COLUMNS: { key: SortKey; label: string; format: (s: Stock) => string; alig
   { key: 'net_margin', label: 'Neto marža', format: (s) => fmtPct(s.net_margin), align: 'right' },
   { key: 'roe', label: 'ROE', format: (s) => fmtPct(s.roe), align: 'right' },
   { key: 'ebitda_ttm', label: 'EBITDA (TTM)', format: (s) => fmt(s.ebitda_ttm), align: 'right', hideOnMobile: true },
-  { key: 'ev_ebitda', label: 'EV/EBITDA', format: (s) => fmtX(s.ev_ebitda), align: 'right' },
+  { key: 'ev_ebitda', label: 'EV / EBITDA (TTM)', format: (s) => fmtX(s.ev_ebitda), align: 'right' },
   { key: 'revenue_ttm', label: 'Prihod (TTM)', format: (s) => fmt(s.revenue_ttm), align: 'right', hideOnMobile: true },
   { key: 'eps_ttm', label: 'EPS', format: (s) => fmt(s.eps_ttm), align: 'right', hideOnMobile: true },
 ];
