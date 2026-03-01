@@ -21,7 +21,7 @@ function fmt(v: number | null, decimals = 2): string {
 const fmtPct = (v: number | null) => (v !== null ? `${v.toFixed(2)}%` : '—');
 const fmtX = (v: number | null) => (v !== null ? `${v.toFixed(2)}x` : '—');
 
-const COLUMNS: { key: SortKey; label: string; format: (s: Stock) => string; align?: string }[] = [
+const COLUMNS: { key: SortKey; label: string; format: (s: Stock) => string; align?: string; hideOnMobile?: boolean }[] = [
   { key: 'ticker', label: 'Ticker', format: (s) => s.ticker },
   { key: 'name', label: 'Tvrtka', format: (s) => s.name },
   { key: 'price', label: 'Cijena', format: (s) => (s.price ? `${s.price.toFixed(2)} ${s.currency}` : '—') },
@@ -29,10 +29,10 @@ const COLUMNS: { key: SortKey; label: string; format: (s: Stock) => string; alig
   { key: 'pb_ratio', label: 'P/B', format: (s) => fmtX(s.pb_ratio), align: 'right' },
   { key: 'net_margin', label: 'Neto marža', format: (s) => fmtPct(s.net_margin), align: 'right' },
   { key: 'roe', label: 'ROE', format: (s) => fmtPct(s.roe), align: 'right' },
-  { key: 'ebitda_ttm', label: 'EBITDA', format: (s) => fmt(s.ebitda_ttm), align: 'right' },
+  { key: 'ebitda_ttm', label: 'EBITDA', format: (s) => fmt(s.ebitda_ttm), align: 'right', hideOnMobile: true },
   { key: 'ev_ebitda', label: 'EV/EBITDA', format: (s) => fmtX(s.ev_ebitda), align: 'right' },
-  { key: 'revenue_ttm', label: 'Prihod (TTM)', format: (s) => fmt(s.revenue_ttm), align: 'right' },
-  { key: 'eps_ttm', label: 'EPS', format: (s) => fmt(s.eps_ttm), align: 'right' },
+  { key: 'revenue_ttm', label: 'Prihod (TTM)', format: (s) => fmt(s.revenue_ttm), align: 'right', hideOnMobile: true },
+  { key: 'eps_ttm', label: 'EPS', format: (s) => fmt(s.eps_ttm), align: 'right', hideOnMobile: true },
 ];
 
 function getColorClass(key: SortKey, stock: Stock): string {
@@ -139,18 +139,19 @@ export default function StockTable({ stocks, isLoading }: StockTableProps) {
 
       {/* Scrollable table */}
       <div className="flex-1 overflow-auto">
-        <table className="w-full text-sm">
+        <table className="w-full text-xs sm:text-sm">
           <thead className="sticky top-0 z-30">
             <tr className="border-b border-gray-100 bg-white">
-              <th className="pl-6 pr-2 py-3 text-left w-8 sticky left-0 bg-white z-20" />
+              <th className="pl-3 pr-1 py-2 sm:pl-6 sm:pr-2 sm:py-3 text-left sticky left-0 bg-white z-20" />
               {COLUMNS.map((col) => (
                 <th
                   key={col.key}
                   onClick={() => handleSort(col.key)}
-                  className={`px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide
+                  className={`px-2 py-2 sm:px-4 sm:py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide
                               cursor-pointer hover:text-gray-700 select-none whitespace-nowrap transition-colors bg-white
                               ${col.align === 'right' ? 'text-right' : 'text-left'}
-                              ${col.key === 'ticker' ? 'sticky left-12 z-20' : ''}`}
+                              ${col.key === 'ticker' ? 'sticky left-8 sm:left-12 z-20' : ''}
+                              ${col.hideOnMobile ? 'hidden sm:table-cell' : ''}`}
                 >
                   <span className="inline-flex items-center gap-1">
                     {col.label}
@@ -172,7 +173,7 @@ export default function StockTable({ stocks, isLoading }: StockTableProps) {
             {sorted.map((stock) => (
               <tr key={stock.ticker} className="hover:bg-gray-50 transition-colors group">
                 {/* Watchlist star */}
-                <td className="pl-6 pr-2 py-3 sticky left-0 z-10 bg-white group-hover:bg-gray-50">
+                <td className="pl-3 pr-1 py-2 sm:pl-6 sm:pr-2 sm:py-3 sticky left-0 z-10 bg-white group-hover:bg-gray-50">
                   <button
                     onClick={() => toggleWatchlist(stock.ticker)}
                     className={`transition-colors ${
@@ -182,7 +183,7 @@ export default function StockTable({ stocks, isLoading }: StockTableProps) {
                     }`}
                     title={watchlist.has(stock.ticker) ? 'Ukloni iz watchliste' : 'Dodaj u watchlistu'}
                   >
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
                     </svg>
                   </button>
@@ -190,10 +191,11 @@ export default function StockTable({ stocks, isLoading }: StockTableProps) {
                 {COLUMNS.map((col) => (
                   <td
                     key={col.key}
-                    className={`px-4 py-3 whitespace-nowrap ${
+                    className={`px-2 py-2 sm:px-4 sm:py-3 whitespace-nowrap ${
                       col.align === 'right' ? 'text-right' : ''
-                    } ${col.key === 'ticker' ? 'font-semibold text-gray-900 sticky left-12 z-10 bg-white group-hover:bg-gray-50' : 'text-gray-600'}
-                    ${col.key === 'name' ? 'max-w-[200px] truncate' : ''}
+                    } ${col.key === 'ticker' ? 'font-semibold text-gray-900 sticky left-8 sm:left-12 z-10 bg-white group-hover:bg-gray-50' : 'text-gray-600'}
+                    ${col.key === 'name' ? 'max-w-[120px] sm:max-w-[200px] truncate' : ''}
+                    ${col.hideOnMobile ? 'hidden sm:table-cell' : ''}
                     ${getColorClass(col.key, stock)}`}
                   >
                     {col.format(stock)}

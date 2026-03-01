@@ -172,7 +172,7 @@ export default function Home() {
           {/* Content row — fills remaining height */}
           <div className="flex-1 overflow-hidden flex flex-col lg:flex-row gap-6 pb-4">
             {/* Filter sidebar — scrolls independently */}
-            <div className={`w-full lg:w-80 xl:w-96 flex-shrink-0 overflow-y-auto ${mobileTab === 'filters' ? 'flex flex-col' : 'hidden'} lg:flex lg:flex-col`}>
+            <div className={`w-full lg:w-80 xl:w-96 flex-1 min-h-0 lg:flex-none overflow-y-auto ${mobileTab === 'filters' ? 'flex flex-col' : 'hidden'} lg:flex lg:flex-col`}>
               <FilterPanel
                 filters={filters}
                 onChange={handleFiltersChange}
