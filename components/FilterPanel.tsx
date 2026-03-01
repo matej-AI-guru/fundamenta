@@ -46,7 +46,7 @@ export default function FilterPanel({ filters, onChange, onReset, activeCount }:
       onChange({ ...filters, [minKey]: min, [maxKey]: max });
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex-shrink-0">
       {/* Header */}
       <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
         <div className="flex items-center gap-3">
