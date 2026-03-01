@@ -59,6 +59,7 @@ export type Stock = {
   earnings_yield: number | null;
   ebitda_ttm: number | null;
   ev_ebitda: number | null;
+  cash_and_equivalents: number | null;
   currency: string;
   last_updated: string;
 };

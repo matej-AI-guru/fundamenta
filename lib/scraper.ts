@@ -21,6 +21,7 @@ export interface StockData {
   earnings_yield: number | null;
   ebitda_ttm: number | null;
   ev_ebitda: number | null;
+  cash_and_equivalents: number | null;
   currency: string;
 }
 
@@ -203,6 +204,7 @@ export async function fetchStockData(
     const shareholders_equity = parseMetricValue(raw['shareholders_equity_quarterly']);
     const ebitda_ttm = parseMetricValue(raw['ebitda_ttm']);
     const total_debt = parseMetricValue(raw['total_debt_quarterly']);
+    const cash_and_equivalents = parseMetricValue(raw['cash_and_equivalents_quarterly']);
 
     // Price: listing page (real-time) → individual page RSC → null
     const price = listingPrice ?? extractLatestPrice(html);
@@ -234,11 +236,10 @@ export async function fetchStockData(
 
     const earnings_yield = pe_ratio && pe_ratio !== 0 ? (1 / pe_ratio) * 100 : null;
 
-    // EV/EBITDA = (Market Cap + Total Debt) / EBITDA TTM
-    // Note: ignores cash (not available for free on investiramo.com)
+    // EV/EBITDA = (Market Cap + Total Debt - Cash) / EBITDA TTM
     const ev_ebitda =
       market_cap !== null && total_debt !== null && ebitda_ttm && ebitda_ttm !== 0
-        ? (market_cap + total_debt) / ebitda_ttm
+        ? (market_cap + total_debt - (cash_and_equivalents ?? 0)) / ebitda_ttm
         : null;
 
     // Skip if we got essentially nothing useful
@@ -271,6 +272,7 @@ export async function fetchStockData(
       earnings_yield,
       ebitda_ttm,
       ev_ebitda,
+      cash_and_equivalents,
       currency: 'EUR',
     };
   } catch (err) {
