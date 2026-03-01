@@ -12,8 +12,9 @@ function isAuthorized(req: NextRequest): boolean {
   return manual === cronSecret;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function applyRange(
-  q: ReturnType<typeof supabaseAdmin.from<'stocks'>>,
+  q: any,
   col: string,
   min: number | null | undefined,
   max: number | null | undefined
