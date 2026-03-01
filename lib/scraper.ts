@@ -174,20 +174,36 @@ export async function fetchStockData(
     const name = h1.replace(/\s*\([^)]+\)\s*$/, '').trim() || ticker;
 
     // --- Extract all /podaci?i=METRIC_NAME anchor metrics ---
-    // These are the stable API: <a href="/hr/dionice/TICKER/podaci?i=metric_key">
-    // followed by a sibling <span> with the value
     const raw: Record<string, string> = {};
-    $('a[href*="/podaci?i="]').each((_i, el) => {
-      const href = $(el).attr('href') ?? '';
-      const m = href.match(/[?&]i=([a-z_]+)/);
-      if (!m) return;
-      const key = m[1];
-      const val =
-        $(el).closest('span').next('span').text().trim() ||
-        $(el).parent().next().text().trim() ||
-        $(el).closest('td').next('td').text().trim();
-      if (val && val !== 'Prijavi se') raw[key] = val;
-    });
+
+    function extractRaw(doc: ReturnType<typeof cheerio.load>, target: Record<string, string>, overwrite = false) {
+      doc('a[href*="/podaci?i="]').each((_i, el) => {
+        const href = doc(el).attr('href') ?? '';
+        const m = href.match(/[?&]i=([a-z_]+)/);
+        if (!m) return;
+        const key = m[1];
+        if (!overwrite && target[key]) return;
+        const val =
+          doc(el).closest('span').next('span').text().trim() ||
+          doc(el).parent().next().text().trim() ||
+          doc(el).closest('td').next('td').text().trim() ||
+          doc(el).next('span').text().trim() ||
+          doc(el).parent().clone().children().remove().end().text().trim();
+        if (val && val !== 'Prijavi se') target[key] = val;
+      });
+    }
+
+    extractRaw($, raw, true);
+
+    // Also fetch kljucni-pokazatelji — cash is only available there
+    try {
+      const kpRes = await fetchWithRetry(`${BASE_URL}/hr/dionice/${ticker}/kljucni-pokazatelji`);
+      if (kpRes) {
+        const kpHtml = await kpRes.text();
+        const $kp = cheerio.load(kpHtml);
+        extractRaw($kp, raw, false); // don't overwrite main-page values
+      }
+    } catch { /* ignore */ }
 
     // --- Parse the metrics we care about ---
     // investiramo.com uses "net_income_ttm" for what we store as net_profit_ttm
