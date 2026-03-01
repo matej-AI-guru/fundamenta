@@ -42,7 +42,7 @@ export default function AlertSubscribe({ filters }: AlertSubscribeProps) {
 
   return (
     <div className="px-6 py-4 border-t border-gray-100">
-      <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-3">Dnevni alarm</p>
+      <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-3">Dnevna obavijest</p>
 
       {state === 'success' ? (
         <div className="flex items-start gap-2 p-3 rounded-xl bg-emerald-50 border border-emerald-100">
