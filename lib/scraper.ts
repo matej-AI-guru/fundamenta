@@ -115,18 +115,32 @@ const FETCH_HEADERS = {
   'Accept-Language': 'hr,en;q=0.9',
 };
 
-async function fetchWithRetry(url: string, maxRetries = 3): Promise<Response | null> {
+async function fetchWithRetry(url: string, maxRetries = 2): Promise<Response | null> {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    const res = await fetch(url, { headers: FETCH_HEADERS, cache: 'no-store' });
-    if (res.ok) return res;
-    if ([429, 502, 503, 504].includes(res.status)) {
-      const wait = attempt * 3000;
-      console.warn(`${url} → HTTP ${res.status}, retrying in ${wait / 1000}s (attempt ${attempt}/${maxRetries})`);
-      await new Promise((r) => setTimeout(r, wait));
-      continue;
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), 12_000); // 12s hard timeout per request
+    try {
+      const res = await fetch(url, { headers: FETCH_HEADERS, cache: 'no-store', signal: controller.signal });
+      clearTimeout(t);
+      if (res.ok) return res;
+      if ([429, 502, 503, 504].includes(res.status)) {
+        const wait = attempt * 1500;
+        console.warn(`${url} → HTTP ${res.status}, retrying in ${wait / 1000}s (attempt ${attempt}/${maxRetries})`);
+        await new Promise((r) => setTimeout(r, wait));
+        continue;
+      }
+      console.warn(`Skipping ${url}: HTTP ${res.status}`);
+      return null;
+    } catch (e) {
+      clearTimeout(t);
+      if (attempt < maxRetries) {
+        console.warn(`${url} → fetch error, retrying (attempt ${attempt}/${maxRetries}):`, e);
+        await new Promise((r) => setTimeout(r, 1500));
+        continue;
+      }
+      console.warn(`Giving up on ${url}:`, e);
+      return null;
     }
-    console.warn(`Skipping ${url}: HTTP ${res.status}`);
-    return null;
   }
   console.warn(`Giving up on ${url} after ${maxRetries} retries`);
   return null;
@@ -206,55 +220,43 @@ async function fetchSazetak(sifSim: string): Promise<{
   const sharesRaw = $('#ctl00_ContentPlaceHolder1_labBrDionicaRacun').text().trim();
   const shares_outstanding = parseCroatianNum(sharesRaw);
 
-  // Dividend — from dividend table inside #naslovDivid
+  // Dividend — scan all rows globally (div ID may not always resolve correctly)
   let dividend: number | null = null;
   let dividend_yield: number | null = null;
 
-  const divDiv = $('#ctl00_ContentPlaceHolder1_naslovDivid');
-  if (divDiv.length) {
-    divDiv.find('tr').each((_i, row) => {
-      const cells = $(row).find('td');
-      if (cells.length < 2) return;
-      const label = $(cells[0]).text().trim();
+  $('tr').each((_i, row) => {
+    if (dividend !== null && dividend_yield !== null) return false;
+    const cells = $(row).find('td');
+    if (cells.length < 2) return;
+    const label = $(cells[0]).text().trim().toLowerCase();
 
-      if (dividend === null && label.toLowerCase().includes('dividenda') && !label.toLowerCase().includes('prinos')) {
-        // Try cells[1] first (2nd td), then cells[2] — take first numeric value found
-        for (const idx of [1, 2, 3]) {
-          if (!cells[idx]) continue;
-          const raw = $(cells[idx]).text().trim().split(/[\n\r\t]/)[0].trim();
-          const val = parseCroatianFloat(raw);
-          if (val !== null && val > 0) {
-            dividend = val;
-            break;
-          }
-        }
+    if (dividend === null && label.includes('dividenda') && !label.includes('prinos')) {
+      for (const idx of [1, 2, 3]) {
+        if (!cells[idx]) continue;
+        const raw = $(cells[idx]).text().trim().split(/[\n\r\t]/)[0].trim();
+        const val = parseCroatianFloat(raw);
+        if (val !== null && val > 0) { dividend = val; break; }
       }
-
-      if (dividend_yield === null && label.toLowerCase().includes('prinos')) {
-        for (const idx of [1, 2, 3]) {
-          if (!cells[idx]) continue;
-          const raw = $(cells[idx]).text().trim().replace('%', '').split(/[\n\r\t]/)[0].trim();
-          const val = parseCroatianFloat(raw);
-          if (val !== null) {
-            dividend_yield = val;
-            break;
-          }
-        }
-      }
-    });
-
-    // Fallback for dividend_yield via title attribute
-    if (dividend_yield === null) {
-      $('td[title="Dividendni prinos"]').each((_i, el) => {
-        const next = $(el).next('td');
-        const rawPct = next.text().trim().replace('%', '').trim();
-        const val = parseCroatianFloat(rawPct);
-        if (val !== null) {
-          dividend_yield = val;
-          return false;
-        }
-      });
     }
+
+    if (dividend_yield === null && label.includes('div') && label.includes('prinos')) {
+      for (const idx of [1, 2, 3]) {
+        if (!cells[idx]) continue;
+        const raw = $(cells[idx]).text().trim().replace('%', '').split(/[\n\r\t]/)[0].trim();
+        const val = parseCroatianFloat(raw);
+        if (val !== null) { dividend_yield = val; break; }
+      }
+    }
+  });
+
+  // Fallback for dividend_yield via title attribute
+  if (dividend_yield === null) {
+    $('td[title="Dividendni prinos"]').each((_i, el) => {
+      const next = $(el).next('td');
+      const rawPct = next.text().trim().replace('%', '').trim();
+      const val = parseCroatianFloat(rawPct);
+      if (val !== null) { dividend_yield = val; return false; }
+    });
   }
 
   return { name, price, market_cap, shares_outstanding, dividend, dividend_yield };
@@ -374,13 +376,12 @@ export async function fetchStockData(ticker: string): Promise<StockData | null> 
   const sifSim = sifSimFromTicker(ticker);
 
   try {
-    // Fetch all 4 pages in parallel — faster and stays within Vercel timeout
-    const [sazetak, bilanca, rdg, novcanTok] = await Promise.all([
-      fetchSazetak(sifSim),
-      fetchBilanca(sifSim),
-      fetchRDG(sifSim),
-      fetchNovcanTok(sifSim),
-    ]);
+    // Fetch 4 pages sequentially — avoids overwhelming mojedionice.com with
+    // parallel requests which causes rate-limiting and most tickers to return null
+    const sazetak   = await fetchSazetak(sifSim);
+    const bilanca   = await fetchBilanca(sifSim);
+    const rdg       = await fetchRDG(sifSim);
+    const novcanTok = await fetchNovcanTok(sifSim);
 
     const {
       name, price, market_cap, shares_outstanding, dividend, dividend_yield,
@@ -516,16 +517,17 @@ export async function fetchStockData(ticker: string): Promise<StockData | null> 
   }
 }
 
-// Scrape all stocks in concurrent batches.
-// 5 tickers × 4 parallel pages = 20 concurrent requests per batch.
-// 48 tickers → 10 batches × ~2s each ≈ 20s total (fits Vercel Hobby 60s limit).
+// Scrape all stocks.
+// Tickers are processed 2 at a time (each doing 4 sequential page fetches).
+// Max 2 concurrent requests to mojedionice.com → no rate-limiting.
+// 48 tickers → 24 batches × ~3.5s each ≈ 84s total (fits Vercel maxDuration=300).
 export async function scrapeAllStocks(
   onProgress?: (ticker: string, index: number, total: number) => void
 ): Promise<StockData[]> {
   const tickers = await fetchAllTickers();
   console.log(`Scraping ${tickers.length} ZSE tickers from mojedionice.com`);
 
-  const CONCURRENCY = 5;
+  const CONCURRENCY = 2;
   const results: StockData[] = [];
 
   for (let i = 0; i < tickers.length; i += CONCURRENCY) {
@@ -538,9 +540,8 @@ export async function scrapeAllStocks(
     );
     results.push(...(batchResults.filter(Boolean) as StockData[]));
 
-    // Small courtesy delay between batches
     if (i + CONCURRENCY < tickers.length) {
-      await new Promise((r) => setTimeout(r, 500));
+      await new Promise((r) => setTimeout(r, 300));
     }
   }
 
