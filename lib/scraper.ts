@@ -376,12 +376,13 @@ export async function fetchStockData(ticker: string): Promise<StockData | null> 
   const sifSim = sifSimFromTicker(ticker);
 
   try {
-    // Fetch 4 pages sequentially — avoids overwhelming mojedionice.com with
-    // parallel requests which causes rate-limiting and most tickers to return null
-    const sazetak   = await fetchSazetak(sifSim);
-    const bilanca   = await fetchBilanca(sifSim);
-    const rdg       = await fetchRDG(sifSim);
-    const novcanTok = await fetchNovcanTok(sifSim);
+    // Fetch 4 pages in parallel — faster than sequential
+    const [sazetak, bilanca, rdg, novcanTok] = await Promise.all([
+      fetchSazetak(sifSim),
+      fetchBilanca(sifSim),
+      fetchRDG(sifSim),
+      fetchNovcanTok(sifSim),
+    ]);
 
     const {
       name, price, market_cap, shares_outstanding, dividend, dividend_yield,
@@ -517,17 +518,20 @@ export async function fetchStockData(ticker: string): Promise<StockData | null> 
   }
 }
 
-// Scrape all stocks.
-// Tickers are processed 2 at a time (each doing 4 sequential page fetches).
-// Max 2 concurrent requests to mojedionice.com → no rate-limiting.
-// 48 tickers → 24 batches × ~3.5s each ≈ 84s total (fits Vercel maxDuration=300).
+// Scrape all stocks in concurrent batches.
+//
+// CONCURRENCY=3 → 3 tickers × 4 parallel pages = 12 concurrent requests.
+// Trade-off vs CONCURRENCY=5 (20 req) which caused rate-limiting on mojedionice.com.
+//
+// Timeline: 16 batches × ~1.8s ≈ 29s — fits within Vercel Hobby 30s hard limit.
+// On Pro plan (maxDuration=300) this completes well within budget regardless.
 export async function scrapeAllStocks(
   onProgress?: (ticker: string, index: number, total: number) => void
 ): Promise<StockData[]> {
   const tickers = await fetchAllTickers();
   console.log(`Scraping ${tickers.length} ZSE tickers from mojedionice.com`);
 
-  const CONCURRENCY = 2;
+  const CONCURRENCY = 3;
   const results: StockData[] = [];
 
   for (let i = 0; i < tickers.length; i += CONCURRENCY) {
