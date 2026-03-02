@@ -29,10 +29,19 @@ const COLUMNS: { key: SortKey; label: string; format: (s: Stock) => string; alig
   { key: 'pb_ratio', label: 'P/B', format: (s) => fmtX(s.pb_ratio), align: 'right' },
   { key: 'net_margin', label: 'Neto marža', format: (s) => fmtPct(s.net_margin), align: 'right' },
   { key: 'roe', label: 'ROE', format: (s) => fmtPct(s.roe), align: 'right' },
-  { key: 'ebitda_ttm', label: 'EBITDA (TTM)', format: (s) => fmt(s.ebitda_ttm), align: 'right', hideOnMobile: true },
-  { key: 'ev_ebitda', label: 'EV / EBITDA (TTM)', format: (s) => fmtX(s.ev_ebitda), align: 'right' },
-  { key: 'revenue_ttm', label: 'Prihod (TTM)', format: (s) => fmt(s.revenue_ttm), align: 'right', hideOnMobile: true },
-  { key: 'eps_ttm', label: 'EPS', format: (s) => fmt(s.eps_ttm), align: 'right', hideOnMobile: true },
+  { key: 'ebitda', label: 'EBITDA', format: (s) => fmt(s.ebitda), align: 'right', hideOnMobile: true },
+  { key: 'ebit', label: 'EBIT', format: (s) => fmt(s.ebit), align: 'right', hideOnMobile: true },
+  { key: 'ev_ebitda', label: 'EV / EBITDA', format: (s) => fmtX(s.ev_ebitda), align: 'right' },
+  { key: 'revenue', label: 'Prihod', format: (s) => fmt(s.revenue), align: 'right', hideOnMobile: true },
+  { key: 'eps', label: 'EPS', format: (s) => fmt(s.eps), align: 'right', hideOnMobile: true },
+  { key: 'current_ratio', label: 'Current ratio', format: (s) => fmtX(s.current_ratio), align: 'right', hideOnMobile: true },
+  { key: 'current_assets', label: 'Kratk. imovina', format: (s) => fmt(s.current_assets), align: 'right', hideOnMobile: true },
+  { key: 'current_financial_assets', label: 'Kratk. fin. imovina', format: (s) => fmt(s.current_financial_assets), align: 'right', hideOnMobile: true },
+  { key: 'current_liabilities', label: 'Kratk. obveze', format: (s) => fmt(s.current_liabilities), align: 'right', hideOnMobile: true },
+  { key: 'total_assets', label: 'Aktiva', format: (s) => fmt(s.total_assets), align: 'right', hideOnMobile: true },
+  { key: 'free_cash_flow', label: 'FCF', format: (s) => fmt(s.free_cash_flow), align: 'right', hideOnMobile: true },
+  { key: 'dividend', label: 'Dividenda', format: (s) => (s.dividend !== null ? `${s.dividend.toFixed(2)} ${s.currency}` : '—'), align: 'right', hideOnMobile: true },
+  { key: 'dividend_yield', label: 'Div. prinos', format: (s) => fmtPct(s.dividend_yield), align: 'right', hideOnMobile: true },
 ];
 
 function getColorClass(key: SortKey, stock: Stock): string {

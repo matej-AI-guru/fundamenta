@@ -115,14 +115,14 @@ export default function FilterPanel({ filters, onChange, onReset, activeCount }:
         />
 
         <RangeSlider
-          label="EV / EBITDA (TTM)"
+          label="EV / EBITDA"
           min={0}
           max={50}
           step={0.1}
           value={[filters.ev_ebitda_min ?? null, filters.ev_ebitda_max ?? null]}
           onChange={setRange('ev_ebitda_min', 'ev_ebitda_max')}
           formatValue={fmtX}
-          description="Vrijednost poduzeća / EBITDA (TTM)"
+          description="Vrijednost poduzeća / EBITDA"
         />
       </div>
 
@@ -172,7 +172,7 @@ export default function FilterPanel({ filters, onChange, onReset, activeCount }:
             />
 
             <RangeSlider
-              label="Prihod (TTM)"
+              label="Prihod"
               unit="EUR"
               min={0}
               max={5_000_000_000}
@@ -180,11 +180,11 @@ export default function FilterPanel({ filters, onChange, onReset, activeCount }:
               value={[filters.revenue_min ?? null, filters.revenue_max ?? null]}
               onChange={setRange('revenue_min', 'revenue_max')}
               formatValue={fmt}
-              description="Godišnji prihod (trailing 12 mj.)"
+              description="Godišnji prihod"
             />
 
             <RangeSlider
-              label="Neto dobit (TTM)"
+              label="Neto dobit"
               unit="EUR"
               min={-500_000_000}
               max={500_000_000}
@@ -229,7 +229,7 @@ export default function FilterPanel({ filters, onChange, onReset, activeCount }:
             />
 
             <RangeSlider
-              label="EPS (TTM)"
+              label="EPS"
               unit="EUR"
               min={-50}
               max={200}
@@ -237,6 +237,53 @@ export default function FilterPanel({ filters, onChange, onReset, activeCount }:
               value={[filters.eps_min ?? null, filters.eps_max ?? null]}
               onChange={setRange('eps_min', 'eps_max')}
               description="Dobit po dionici"
+            />
+
+            <RangeSlider
+              label="EBIT"
+              unit="EUR"
+              min={-500_000_000}
+              max={500_000_000}
+              step={1_000_000}
+              value={[filters.ebit_min ?? null, filters.ebit_max ?? null]}
+              onChange={setRange('ebit_min', 'ebit_max')}
+              formatValue={fmt}
+              description="Dobit prije kamata i poreza"
+            />
+
+            <RangeSlider
+              label="Current ratio"
+              min={0}
+              max={10}
+              step={0.1}
+              value={[filters.current_ratio_min ?? null, filters.current_ratio_max ?? null]}
+              onChange={setRange('current_ratio_min', 'current_ratio_max')}
+              formatValue={fmtX}
+              description="Kratkotrajna imovina / Kratkoročne obveze"
+            />
+
+            <RangeSlider
+              label="Dividendni prinos"
+              unit="%"
+              min={0}
+              max={20}
+              step={0.1}
+              value={[filters.dividend_yield_min ?? null, filters.dividend_yield_max ?? null]}
+              onChange={setRange('dividend_yield_min', 'dividend_yield_max')}
+              formatValue={fmtPct}
+              description="Godišnja dividenda / Cijena dionice"
+            />
+
+            <RangeSlider
+              label="FCF"
+              unit="EUR"
+              min={-500_000_000}
+              max={500_000_000}
+              step={1_000_000}
+              value={[filters.free_cash_flow_min ?? null, filters.free_cash_flow_max ?? null]}
+              onChange={setRange('free_cash_flow_min', 'free_cash_flow_max')}
+              formatValue={fmt}
+              description="Slobodni novčani tok (operativni CF - CapEx)"
             />
 
             <RangeSlider

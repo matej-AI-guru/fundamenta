@@ -39,16 +39,20 @@ export async function GET(req: NextRequest) {
     query = applyRange(query, 'market_cap', filters.market_cap_min, filters.market_cap_max);
     query = applyRange(query, 'net_margin', filters.net_margin_min, filters.net_margin_max);
     query = applyRange(query, 'pb_ratio', filters.pb_min, filters.pb_max);
-    query = applyRange(query, 'revenue_ttm', filters.revenue_min, filters.revenue_max);
-    query = applyRange(query, 'net_profit_ttm', filters.net_profit_min, filters.net_profit_max);
+    query = applyRange(query, 'revenue', filters.revenue_min, filters.revenue_max);
+    query = applyRange(query, 'net_profit', filters.net_profit_min, filters.net_profit_max);
     query = applyRange(query, 'ps_ratio', filters.ps_min, filters.ps_max);
     query = applyRange(query, 'pcf_ratio', filters.pcf_min, filters.pcf_max);
     query = applyRange(query, 'pfcf_ratio', filters.pfcf_min, filters.pfcf_max);
-    query = applyRange(query, 'eps_ttm', filters.eps_min, filters.eps_max);
+    query = applyRange(query, 'eps', filters.eps_min, filters.eps_max);
     query = applyRange(query, 'roe', filters.roe_min, filters.roe_max);
     query = applyRange(query, 'earnings_yield', filters.earnings_yield_min, filters.earnings_yield_max);
     query = applyRange(query, 'shares_outstanding', filters.shares_min, filters.shares_max);
     query = applyRange(query, 'ev_ebitda', filters.ev_ebitda_min, filters.ev_ebitda_max);
+    query = applyRange(query, 'ebit', filters.ebit_min, filters.ebit_max);
+    query = applyRange(query, 'current_ratio', filters.current_ratio_min, filters.current_ratio_max);
+    query = applyRange(query, 'dividend_yield', filters.dividend_yield_min, filters.dividend_yield_max);
+    query = applyRange(query, 'free_cash_flow', filters.free_cash_flow_min, filters.free_cash_flow_max);
 
     const { data: stocks, error } = await query;
 

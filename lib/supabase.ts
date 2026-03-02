@@ -41,12 +41,33 @@ export const supabaseAdmin = new Proxy({} as SupabaseClient, {
 export type Stock = {
   ticker: string;
   name: string;
+  // Tržišni podaci
   price: number | null;
   market_cap: number | null;
-  revenue_ttm: number | null;
-  net_profit_ttm: number | null;
-  eps_ttm: number | null;
   shares_outstanding: number | null;
+  // Dividende
+  dividend: number | null;
+  dividend_yield: number | null;
+  // Bilanca
+  total_assets: number | null;
+  equity: number | null;
+  current_assets: number | null;
+  current_financial_assets: number | null;
+  cash: number | null;
+  long_term_liabilities: number | null;
+  current_liabilities: number | null;
+  // RDG
+  revenue: number | null;
+  net_profit: number | null;
+  ebit: number | null;
+  depreciation: number | null;
+  // Novčani tok
+  operating_cash_flow: number | null;
+  capex: number | null;
+  // Izračunato
+  ebitda: number | null;
+  eps: number | null;
+  book_value_per_share: number | null;
   pe_ratio: number | null;
   pb_ratio: number | null;
   ps_ratio: number | null;
@@ -54,13 +75,11 @@ export type Stock = {
   pfcf_ratio: number | null;
   net_margin: number | null;
   roe: number | null;
-  book_value_per_share: number | null;
-  revenue_per_share: number | null;
   earnings_yield: number | null;
-  ebitda_ttm: number | null;
+  revenue_per_share: number | null;
+  free_cash_flow: number | null;
   ev_ebitda: number | null;
-  cash_and_equivalents: number | null;
-  total_debt: number | null;
+  current_ratio: number | null;
   currency: string;
   last_updated: string;
 };
@@ -104,4 +123,12 @@ export type FilterValues = {
   shares_max: number | null;
   ev_ebitda_min: number | null;
   ev_ebitda_max: number | null;
+  ebit_min: number | null;
+  ebit_max: number | null;
+  current_ratio_min: number | null;
+  current_ratio_max: number | null;
+  dividend_yield_min: number | null;
+  dividend_yield_max: number | null;
+  free_cash_flow_min: number | null;
+  free_cash_flow_max: number | null;
 };
