@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { scrapeAllStocks, ZSE_TICKERS } from '@/lib/scraper';
 import { supabaseAdmin } from '@/lib/supabase';
 
+// Vercel Pro allows up to 300s; Hobby max is 60s
+export const maxDuration = 300;
+
 function isAuthorized(req: NextRequest): boolean {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) return false;

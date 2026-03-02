@@ -78,8 +78,19 @@ function sifSimFromTicker(ticker: string): string {
   return `${ticker}-R-A`;
 }
 
-// Parse Croatian float format: "1.246,69 M" → 1,246,690,000
-// Used for Sažetak page values (with M/K/B suffix)
+// Parse Croatian number — strips thousand-separator dots, converts decimal comma.
+// Returns raw number with NO extra scaling.
+function parseCroatianNum(s: string | undefined): number | null {
+  if (!s) return null;
+  const trimmed = s.trim().replace(/\s/g, '');
+  if (!trimmed || trimmed === '-' || trimmed === 'N/A') return null;
+  const normalized = trimmed.replace(/\./g, '').replace(',', '.');
+  const num = parseFloat(normalized);
+  return isNaN(num) ? null : num;
+}
+
+// Parse Croatian float with optional M/K/B suffix — for Sažetak page values.
+// "1.246,69 M" → 1,246,690,000; "760,00" → 760
 function parseCroatianFloat(s: string | undefined): number | null {
   if (!s) return null;
   const trimmed = s.trim();
@@ -96,22 +107,6 @@ function parseCroatianFloat(s: string | undefined): number | null {
 
   const multipliers: Record<string, number> = { K: 1e3, M: 1e6, B: 1e9 };
   return suffix ? num * (multipliers[suffix] ?? 1) : num;
-}
-
-// Parse Croatian integer format from financial statements: "1.169.446" → 1,169,446,000
-// Values in financial statements are in thousands of EUR → ×1000
-function parseCroatianInt(s: string | undefined): number | null {
-  if (!s) return null;
-  const trimmed = s.trim().replace(/\s/g, '');
-  if (!trimmed || trimmed === '-' || trimmed === 'N/A') return null;
-
-  // Remove dots (thousand separators), replace comma with dot
-  const normalized = trimmed.replace(/\./g, '').replace(',', '.');
-  const num = parseFloat(normalized);
-  if (isNaN(num)) return null;
-
-  // Financial statements are in thousands of EUR
-  return num * 1000;
 }
 
 const FETCH_HEADERS = {
@@ -137,11 +132,15 @@ async function fetchWithRetry(url: string, maxRetries = 3): Promise<Response | n
   return null;
 }
 
-// Extract value from financial statement table by AOP number
-// Table structure: tr → td[0]=AOP, td[1]=label, td[2]=most recent value
+// Extract value from a financial statement table by AOP number.
+// Table: tr → td[0]=AOP, td[1]=label, td[2]=most recent value.
+//
+// scale = 1000  for Bilanca (idFinIzv=1) — values are in thousands of EUR
+// scale = 1     for RDG / Novčani tok (idFinIzv=2,3 with nacPrik=24) — absolute EUR
 function extractByAop(
   $: ReturnType<typeof cheerio.load>,
-  aop: number
+  aop: number,
+  scale = 1000
 ): number | null {
   let result: number | null = null;
 
@@ -153,25 +152,21 @@ function extractByAop(
     if (aopText !== String(aop)) return;
 
     // Value is in the 3rd cell (index 2) — first data column = most recent period
-    // The value might be in a span with onmouseover or as plain text
     const cell = $(cells[2]);
     const span = cell.find('span[onmouseover]').first();
 
     let rawVal: string;
     if (span.length) {
-      // Try to get the full unrounded value from the tooltip
+      // Prefer the full unrounded value from the tooltip
       const onmouseover = span.attr('onmouseover') ?? '';
       const tooltipMatch = onmouseover.match(/<td[^>]*align=right[^>]*>([-\d.,]+)<\/td>/i);
-      if (tooltipMatch) {
-        rawVal = tooltipMatch[1];
-      } else {
-        rawVal = span.text().trim();
-      }
+      rawVal = tooltipMatch ? tooltipMatch[1] : span.text().trim();
     } else {
       rawVal = cell.text().trim();
     }
 
-    result = parseCroatianInt(rawVal);
+    const num = parseCroatianNum(rawVal);
+    result = num !== null ? num * scale : null;
     return false; // break
   });
 
@@ -194,51 +189,61 @@ async function fetchSazetak(sifSim: string): Promise<{
   const html = await res.text();
   const $ = cheerio.load(html);
 
-  // Company name from page title or h1
+  // Company name
   const h1 = $('h1').first().text().trim();
-  const name = h1.replace(/\s*:\s*Sažetak.*$/i, '').replace(/KOEI-R-A\s*:/i, '').trim() || sifSim;
+  const name = h1.replace(/\s*:\s*Sažetak.*$/i, '').replace(new RegExp(`${sifSim}\\s*:`, 'i'), '').trim() || sifSim;
 
-  // Price
+  // Price — plain float, e.g. "760,00"
   const priceRaw = $('#ctl00_ContentPlaceHolder1_labCijenaZadnja').text().trim();
   const price = parseCroatianFloat(priceRaw);
 
-  // Market cap (in thousands → ×1000 already handled by multiplying the integer)
+  // Market cap — shown as integer in thousands: "1.954.810" → ×1000 = 1,954,810,000
   const mcapRaw = $('#ctl00_ContentPlaceHolder1_labMCap').text().trim();
-  // Market cap is shown as integer in thousands: "1.954.810" → 1,954,810,000
-  const market_cap = parseCroatianInt(mcapRaw);
+  const mcapNum = parseCroatianNum(mcapRaw);
+  const market_cap = mcapNum !== null ? mcapNum * 1000 : null;
 
-  // Shares outstanding
+  // Shares outstanding — plain integer count, NOT in thousands: "2.572.119" → 2,572,119
   const sharesRaw = $('#ctl00_ContentPlaceHolder1_labBrDionicaRacun').text().trim();
-  const shares_outstanding = parseCroatianInt(sharesRaw);
+  const shares_outstanding = parseCroatianNum(sharesRaw);
 
-  // Dividend — from dividend table
+  // Dividend — from dividend table inside #naslovDivid
   let dividend: number | null = null;
   let dividend_yield: number | null = null;
 
   const divDiv = $('#ctl00_ContentPlaceHolder1_naslovDivid');
   if (divDiv.length) {
-    // Find "Dividenda" row
     divDiv.find('tr').each((_i, row) => {
       const cells = $(row).find('td');
       if (cells.length < 2) return;
       const label = $(cells[0]).text().trim();
 
-      if (label === 'Dividenda' && dividend === null) {
-        // 2nd td = most recent year value (strip any lock icons / subscription elements)
-        const valCell = $(cells[2] ?? cells[1]);
-        const rawText = valCell.clone().find('span, a, img').remove().end().text().trim();
-        const firstLine = rawText.split('\n')[0].trim();
-        dividend = parseCroatianFloat(firstLine);
+      if (dividend === null && label.toLowerCase().includes('dividenda') && !label.toLowerCase().includes('prinos')) {
+        // Try cells[1] first (2nd td), then cells[2] — take first numeric value found
+        for (const idx of [1, 2, 3]) {
+          if (!cells[idx]) continue;
+          const raw = $(cells[idx]).text().trim().split(/[\n\r\t]/)[0].trim();
+          const val = parseCroatianFloat(raw);
+          if (val !== null && val > 0) {
+            dividend = val;
+            break;
+          }
+        }
       }
 
-      if (label === 'Div. prinos' && dividend_yield === null) {
-        const yieldCell = $(cells[2] ?? cells[1]);
-        const rawPct = yieldCell.text().trim().replace('%', '').trim();
-        dividend_yield = parseCroatianFloat(rawPct);
+      if (dividend_yield === null && label.toLowerCase().includes('prinos')) {
+        for (const idx of [1, 2, 3]) {
+          if (!cells[idx]) continue;
+          const raw = $(cells[idx]).text().trim().replace('%', '').split(/[\n\r\t]/)[0].trim();
+          const val = parseCroatianFloat(raw);
+          if (val !== null) {
+            dividend_yield = val;
+            break;
+          }
+        }
       }
     });
 
-    // Fallback: search by title attribute
+    // Fallback for dividend_yield via title attribute
     if (dividend_yield === null) {
       $('td[title="Dividendni prinos"]').each((_i, el) => {
         const next = $(el).next('td');
@@ -256,6 +261,7 @@ async function fetchSazetak(sifSim: string): Promise<{
 }
 
 // Fetch Bilanca — balance sheet items by AOP number
+// Values are in thousands of EUR → scale = 1000 (default)
 async function fetchBilanca(sifSim: string): Promise<{
   total_assets: number | null;
   equity: number | null;
@@ -277,7 +283,7 @@ async function fetchBilanca(sifSim: string): Promise<{
   const $ = cheerio.load(html);
 
   return {
-    current_assets:           extractByAop($, 6),
+    current_assets:           extractByAop($, 6),    // scale=1000 default
     current_financial_assets: extractByAop($, 9),
     cash:                     extractByAop($, 10),
     total_assets:             extractByAop($, 13),
@@ -288,6 +294,7 @@ async function fetchBilanca(sifSim: string): Promise<{
 }
 
 // Fetch RDG (income statement) — revenue, ebit, depreciation, net_profit
+// nacPrik=24 returns ABSOLUTE EUR values (not thousands) → scale = 1
 async function fetchRDG(sifSim: string): Promise<{
   revenue: number | null;
   ebit: number | null;
@@ -301,19 +308,18 @@ async function fetchRDG(sifSim: string): Promise<{
   const html = await res.text();
   const $ = cheerio.load(html);
 
-  const revenue     = extractByAop($, 1);
-  const depreciation = extractByAop($, 17);
-  const net_profit  = extractByAop($, 59);
+  const revenue      = extractByAop($, 1,  1);
+  const depreciation = extractByAop($, 17, 1);
+  const net_profit   = extractByAop($, 59, 1);
 
-  // EBIT: look for row whose label contains "operativna dobit" or "EBIT"
-  // It doesn't have a fixed AOP number, so parse by label text
+  // EBIT: search by label (no fixed AOP number)
   let ebit: number | null = null;
   $('tr').each((_i, row) => {
     if (ebit !== null) return false;
     const cells = $(row).find('td');
     if (cells.length < 3) return;
     const label = $(cells[1]).text().trim().toLowerCase();
-    if (label.includes('operativna dobit') || label.includes('ebit')) {
+    if (label.includes('operativna dobit') || label === 'ebit') {
       const cell = $(cells[2]);
       const span = cell.find('span[onmouseover]').first();
       let rawVal: string;
@@ -324,13 +330,14 @@ async function fetchRDG(sifSim: string): Promise<{
       } else {
         rawVal = cell.text().trim();
       }
-      ebit = parseCroatianInt(rawVal);
+      const num = parseCroatianNum(rawVal);
+      ebit = num; // scale = 1 (absolute)
     }
   });
 
   // Fallback: EBIT = revenue - poslovni_rashodi (AOP 7)
   if (ebit === null && revenue !== null) {
-    const expenses = extractByAop($, 7);
+    const expenses = extractByAop($, 7, 1);
     if (expenses !== null) ebit = revenue - expenses;
   }
 
@@ -338,6 +345,7 @@ async function fetchRDG(sifSim: string): Promise<{
 }
 
 // Fetch Novčani tok (cash flow statement)
+// nacPrik=24 returns ABSOLUTE EUR values → scale = 1
 async function fetchNovcanTok(sifSim: string): Promise<{
   operating_cash_flow: number | null;
   capex: number | null;
@@ -349,9 +357,9 @@ async function fetchNovcanTok(sifSim: string): Promise<{
   const html = await res.text();
   const $ = cheerio.load(html);
 
-  const operating_cash_flow = extractByAop($, 20);
-  const capexRaw = extractByAop($, 28);
-  // CapEx is typically negative (cash outflow) — store as positive
+  const operating_cash_flow = extractByAop($, 20, 1);
+  const capexRaw = extractByAop($, 28, 1);
+  // CapEx is typically a negative cash outflow — store as positive
   const capex = capexRaw !== null ? Math.abs(capexRaw) : null;
 
   return { operating_cash_flow, capex };
@@ -366,11 +374,13 @@ export async function fetchStockData(ticker: string): Promise<StockData | null> 
   const sifSim = sifSimFromTicker(ticker);
 
   try {
-    // Fetch all 4 pages (sequential — mojedionice.com may throttle parallel)
-    const sazetak = await fetchSazetak(sifSim);
-    const bilanca = await fetchBilanca(sifSim);
-    const rdg = await fetchRDG(sifSim);
-    const novcanTok = await fetchNovcanTok(sifSim);
+    // Fetch all 4 pages in parallel — faster and stays within Vercel timeout
+    const [sazetak, bilanca, rdg, novcanTok] = await Promise.all([
+      fetchSazetak(sifSim),
+      fetchBilanca(sifSim),
+      fetchRDG(sifSim),
+      fetchNovcanTok(sifSim),
+    ]);
 
     const {
       name, price, market_cap, shares_outstanding, dividend, dividend_yield,
@@ -506,24 +516,31 @@ export async function fetchStockData(ticker: string): Promise<StockData | null> 
   }
 }
 
-// Scrape all stocks with a polite delay between requests
+// Scrape all stocks in concurrent batches.
+// 5 tickers × 4 parallel pages = 20 concurrent requests per batch.
+// 48 tickers → 10 batches × ~2s each ≈ 20s total (fits Vercel Hobby 60s limit).
 export async function scrapeAllStocks(
   onProgress?: (ticker: string, index: number, total: number) => void
 ): Promise<StockData[]> {
   const tickers = await fetchAllTickers();
   console.log(`Scraping ${tickers.length} ZSE tickers from mojedionice.com`);
 
+  const CONCURRENCY = 5;
   const results: StockData[] = [];
 
-  for (let i = 0; i < tickers.length; i++) {
-    const ticker = tickers[i];
-    onProgress?.(ticker, i + 1, tickers.length);
+  for (let i = 0; i < tickers.length; i += CONCURRENCY) {
+    const batch = tickers.slice(i, i + CONCURRENCY);
+    const batchResults = await Promise.all(
+      batch.map(async (ticker, j) => {
+        onProgress?.(ticker, i + j + 1, tickers.length);
+        return fetchStockData(ticker);
+      })
+    );
+    results.push(...(batchResults.filter(Boolean) as StockData[]));
 
-    const data = await fetchStockData(ticker);
-    if (data) results.push(data);
-
-    if (i < tickers.length - 1) {
-      await new Promise((r) => setTimeout(r, 700));
+    // Small courtesy delay between batches
+    if (i + CONCURRENCY < tickers.length) {
+      await new Promise((r) => setTimeout(r, 500));
     }
   }
 
