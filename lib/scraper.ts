@@ -110,31 +110,38 @@ function parseCroatianFloat(s: string | undefined): number | null {
 }
 
 const FETCH_HEADERS = {
-  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-  'Accept-Language': 'hr,en;q=0.9',
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+  'Accept-Language': 'hr-HR,hr;q=0.9,en-US;q=0.8,en;q=0.7',
+  'Accept-Encoding': 'gzip, deflate, br',
+  Referer: 'https://www.mojedionice.com/',
+  'Upgrade-Insecure-Requests': '1',
+  'Cache-Control': 'max-age=0',
 };
 
 async function fetchWithRetry(url: string): Promise<Response | null> {
-  for (let attempt = 1; attempt <= 2; attempt++) {
+  for (let attempt = 1; attempt <= 3; attempt++) {
     const controller = new AbortController();
-    // 8s abort — allows valid pages enough time; non-existent tickers handled by BSQR removal
-    const t = setTimeout(() => controller.abort(), 8_000);
+    const t = setTimeout(() => controller.abort(), 10_000);
     try {
       const res = await fetch(url, { headers: FETCH_HEADERS, cache: 'no-store', signal: controller.signal });
       clearTimeout(t);
       if (res.ok) return res;
-      // Only retry server errors (5xx) — fail fast on 4xx and rate-limiting
-      if (res.status >= 500 && attempt === 1) {
-        await new Promise((r) => setTimeout(r, 500));
+      console.warn(`[attempt ${attempt}] ${url}: HTTP ${res.status}`);
+      if (res.status === 429 && attempt < 3) {
+        // Rate-limited — back off 15s and retry
+        await new Promise((r) => setTimeout(r, 15_000));
         continue;
       }
-      console.warn(`Skipping ${url}: HTTP ${res.status}`);
+      if (res.status >= 500 && attempt < 3) {
+        await new Promise((r) => setTimeout(r, 2_000));
+        continue;
+      }
       return null;
-    } catch {
+    } catch (err) {
       clearTimeout(t);
-      // Abort or network error — don't retry, just skip
-      return null;
+      console.warn(`[attempt ${attempt}] ${url}: fetch error — ${err}`);
+      if (attempt < 3) await new Promise((r) => setTimeout(r, 2_000));
     }
   }
   return null;
@@ -377,14 +384,14 @@ export async function fetchAllTickers(): Promise<string[]> {
 export async function fetchStockData(ticker: string): Promise<StockData | null> {
   const sifSim = sifSimFromTicker(ticker);
 
+  const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
   try {
-    // Fetch 4 pages in parallel — faster than sequential
-    const [sazetak, bilanca, rdg, novcanTok] = await Promise.all([
-      fetchSazetak(sifSim),
-      fetchBilanca(sifSim),
-      fetchRDG(sifSim),
-      fetchNovcanTok(sifSim),
-    ]);
+    // Fetch 4 pages sequentially with 400ms gap — parallel bursts trigger rate-limiting
+    const sazetak   = await fetchSazetak(sifSim);   await delay(400);
+    const bilanca   = await fetchBilanca(sifSim);   await delay(400);
+    const rdg       = await fetchRDG(sifSim);        await delay(400);
+    const novcanTok = await fetchNovcanTok(sifSim);
 
     const {
       name, price, market_cap, shares_outstanding, dividend, dividend_yield,
@@ -538,21 +545,16 @@ export async function scrapeAllStocks(
     : allTickers.slice(offset);
   console.log(`Scraping tickers ${offset}–${offset + tickers.length - 1} (${tickers.length} total) from mojedionice.com`);
 
-  const CONCURRENCY = 2;
   const results: StockData[] = [];
 
-  for (let i = 0; i < tickers.length; i += CONCURRENCY) {
-    const batch = tickers.slice(i, i + CONCURRENCY);
-    const batchResults = await Promise.all(
-      batch.map(async (ticker, j) => {
-        onProgress?.(ticker, i + j + 1, tickers.length);
-        return fetchStockData(ticker);
-      })
-    );
-    results.push(...(batchResults.filter(Boolean) as StockData[]));
+  for (let i = 0; i < tickers.length; i++) {
+    const ticker = tickers[i];
+    onProgress?.(ticker, i + 1, tickers.length);
+    const result = await fetchStockData(ticker);
+    if (result) results.push(result);
 
-    if (i + CONCURRENCY < tickers.length) {
-      await new Promise((r) => setTimeout(r, 1_000));
+    if (i + 1 < tickers.length) {
+      await new Promise((r) => setTimeout(r, 1_500));
     }
   }
 
