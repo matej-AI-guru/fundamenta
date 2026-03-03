@@ -1,8 +1,24 @@
 {
   "crons": [
     {
-      "path": "/api/scrape",
+      "path": "/api/scrape?offset=0&limit=10",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/scrape?offset=10&limit=10",
+      "schedule": "10 6 * * *"
+    },
+    {
+      "path": "/api/scrape?offset=20&limit=10",
+      "schedule": "20 6 * * *"
+    },
+    {
+      "path": "/api/scrape?offset=30&limit=10",
+      "schedule": "30 6 * * *"
+    },
+    {
+      "path": "/api/scrape?offset=40",
+      "schedule": "40 6 * * *"
     },
     {
       "path": "/api/alerts/send",

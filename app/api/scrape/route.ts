@@ -16,17 +16,24 @@ function isAuthorized(req: NextRequest): boolean {
   return manualSecret === cronSecret;
 }
 
-// POST /api/scrape — scrape all ZSE stocks and upsert to Supabase
+// POST /api/scrape — scrape ZSE stocks and upsert to Supabase.
+// Optional query params: ?offset=0&limit=10 (for split-cron batching)
 export async function POST(req: NextRequest) {
   if (!isAuthorized(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const offset = parseInt(req.nextUrl.searchParams.get('offset') ?? '0');
+  const limitParam = req.nextUrl.searchParams.get('limit');
+  const limit = limitParam !== null ? parseInt(limitParam) : undefined;
+
   try {
-    console.log('Starting ZSE stock scrape...');
-    const stocks = await scrapeAllStocks((ticker, i, total) => {
-      console.log(`[${i}/${total}] Scraped ${ticker}`);
-    });
+    console.log(`Starting ZSE stock scrape (offset=${offset}, limit=${limit ?? 'all'})...`);
+    const stocks = await scrapeAllStocks(
+      (ticker, i, total) => { console.log(`[${i}/${total}] Scraped ${ticker}`); },
+      offset,
+      limit,
+    );
 
     if (stocks.length === 0) {
       return NextResponse.json({ error: 'No stocks scraped' }, { status: 500 });

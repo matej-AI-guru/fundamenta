@@ -520,16 +520,23 @@ export async function fetchStockData(ticker: string): Promise<StockData | null> 
   }
 }
 
-// Scrape all stocks in concurrent batches.
+// Scrape a slice of ZSE stocks.
 //
-// CONCURRENCY=2 → 2 tickers × 4 parallel pages = 8 concurrent requests per batch.
-// 1s delay between batches gives the mojedionice.com rate limiter time to recover.
-// 24 batches × ~3s + 23 × 1s ≈ 95s — fits within Vercel Pro 300s.
+// mojedionice.com rate-limits to ~10 tickers (40 HTTP requests) per session.
+// To scrape all 47 tickers, the cron is split into 5 separate invocations each
+// covering 10 tickers: offsets 0, 10, 20, 30, 40 at 10-minute intervals.
+//
+// CONCURRENCY=2 within each run to keep burst traffic modest.
 export async function scrapeAllStocks(
-  onProgress?: (ticker: string, index: number, total: number) => void
+  onProgress?: (ticker: string, index: number, total: number) => void,
+  offset = 0,
+  limit?: number
 ): Promise<StockData[]> {
-  const tickers = await fetchAllTickers();
-  console.log(`Scraping ${tickers.length} ZSE tickers from mojedionice.com`);
+  const allTickers = await fetchAllTickers();
+  const tickers = limit !== undefined
+    ? allTickers.slice(offset, offset + limit)
+    : allTickers.slice(offset);
+  console.log(`Scraping tickers ${offset}–${offset + tickers.length - 1} (${tickers.length} total) from mojedionice.com`);
 
   const CONCURRENCY = 2;
   const results: StockData[] = [];
