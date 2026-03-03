@@ -143,7 +143,7 @@ export default function Home() {
               Filtriranje dionica
             </h1>
             <p className="text-sm text-gray-500">
-              Pronađi dionice na ZSE prema financijskim pokazateljima. Podaci se ažuriraju jednom dnevno.
+              Pronađi dionice na ZSE prema financijskim pokazateljima.
             </p>
           </div>
 
