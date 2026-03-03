@@ -104,17 +104,6 @@ export default function FilterPanel({ filters, onChange, onReset, activeCount }:
         />
 
         <RangeSlider
-          label="P/B ratio"
-          min={0}
-          max={20}
-          step={0.1}
-          value={[filters.pb_min ?? null, filters.pb_max ?? null]}
-          onChange={setRange('pb_min', 'pb_max')}
-          formatValue={fmtX}
-          description="Cijena / Knjigovodstvena vrijednost"
-        />
-
-        <RangeSlider
           label="EV / EBITDA"
           min={0}
           max={50}
@@ -123,6 +112,18 @@ export default function FilterPanel({ filters, onChange, onReset, activeCount }:
           onChange={setRange('ev_ebitda_min', 'ev_ebitda_max')}
           formatValue={fmtX}
           description="Vrijednost poduzeća / EBITDA"
+        />
+
+        <RangeSlider
+          label="ROCE"
+          unit="%"
+          min={-50}
+          max={100}
+          step={0.5}
+          value={[filters.roce_min ?? null, filters.roce_max ?? null]}
+          onChange={setRange('roce_min', 'roce_max')}
+          formatValue={fmtPct}
+          description="Povrat na angažirani kapital"
         />
       </div>
 
@@ -147,6 +148,38 @@ export default function FilterPanel({ filters, onChange, onReset, activeCount }:
 
         {showAdditional && (
           <div className="mt-5 space-y-7 pb-2">
+            <RangeSlider
+              label="Buffett podcijenjenost"
+              unit="%"
+              min={-100}
+              max={500}
+              step={5}
+              value={[
+                filters.buffett_undervalue_min != null ? filters.buffett_undervalue_min * 100 : null,
+                filters.buffett_undervalue_max != null ? filters.buffett_undervalue_max * 100 : null,
+              ]}
+              onChange={([min, max]) =>
+                onChange({
+                  ...filters,
+                  buffett_undervalue_min: min != null ? min / 100 : null,
+                  buffett_undervalue_max: max != null ? max / 100 : null,
+                })
+              }
+              formatValue={fmtPct}
+              description="(Buffettova metrika / Tržišna kap.) - 1"
+            />
+
+            <RangeSlider
+              label="P/B ratio"
+              min={0}
+              max={20}
+              step={0.1}
+              value={[filters.pb_min ?? null, filters.pb_max ?? null]}
+              onChange={setRange('pb_min', 'pb_max')}
+              formatValue={fmtX}
+              description="Cijena / Knjigovodstvena vrijednost"
+            />
+
             <RangeSlider
               label="Neto marža"
               unit="%"
