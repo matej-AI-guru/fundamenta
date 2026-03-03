@@ -28,6 +28,8 @@ export interface StockData {
   capex: number | null;
   // Izračunato
   ebitda: number | null;
+  buffett_metric: number | null;
+  roce: number | null;
   eps: number | null;
   book_value_per_share: number | null;
   pe_ratio: number | null;
@@ -474,6 +476,19 @@ export async function fetchStockData(ticker: string): Promise<StockData | null> 
         ? (market_cap + (long_term_liabilities ?? 0) - (cash ?? 0)) / ebitda
         : null;
 
+    // Novac + Kratkotrajna fin. imovina + EBIT × 10
+    const buffett_metric =
+      cash !== null && current_financial_assets !== null && ebit !== null
+        ? cash + current_financial_assets + ebit * 10
+        : null;
+
+    // EBIT / (Aktiva - Kratkoročne obveze) × 100
+    const roce =
+      ebit !== null && total_assets !== null && current_liabilities !== null &&
+      (total_assets - current_liabilities) !== 0
+        ? (ebit / (total_assets - current_liabilities)) * 100
+        : null;
+
     // Skip if we got essentially nothing
     const hasData = [price, market_cap, revenue, net_profit, pe_ratio].some(
       (v) => v !== null
@@ -505,6 +520,8 @@ export async function fetchStockData(ticker: string): Promise<StockData | null> 
       operating_cash_flow,
       capex,
       ebitda,
+      buffett_metric,
+      roce,
       eps,
       book_value_per_share,
       pe_ratio,

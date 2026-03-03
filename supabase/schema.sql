@@ -23,6 +23,8 @@ create table if not exists public.stocks (
   pcf_ratio numeric,           -- Price / Cash Flow
   pfcf_ratio numeric,          -- Price / Free Cash Flow
   -- Calculated metrics
+  buffett_metric numeric,      -- Novac + Kratk. fin. imovina + EBIT × 10
+  roce numeric,                -- EBIT / (Aktiva - Kratk. obveze) × 100 (%)
   net_margin numeric,          -- Net Profit / Revenue (%)
   roe numeric,                 -- Net Profit / Book Value of Equity (%)
   book_value_per_share numeric,-- Price / P/B
