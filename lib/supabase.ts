@@ -134,4 +134,8 @@ export type FilterValues = {
   dividend_yield_max: number | null;
   free_cash_flow_min: number | null;
   free_cash_flow_max: number | null;
+  buffett_undervalue_min: number | null;
+  buffett_undervalue_max: number | null;
+  roce_min: number | null;
+  roce_max: number | null;
 };

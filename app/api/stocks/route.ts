@@ -53,6 +53,8 @@ export async function GET(req: NextRequest) {
     query = applyRange(query, 'current_ratio', filters.current_ratio_min, filters.current_ratio_max);
     query = applyRange(query, 'dividend_yield', filters.dividend_yield_min, filters.dividend_yield_max);
     query = applyRange(query, 'free_cash_flow', filters.free_cash_flow_min, filters.free_cash_flow_max);
+    query = applyRange(query, 'buffett_undervalue', filters.buffett_undervalue_min, filters.buffett_undervalue_max);
+    query = applyRange(query, 'roce', filters.roce_min, filters.roce_max);
 
     const { data: stocks, error } = await query;
 

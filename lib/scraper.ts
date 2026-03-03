@@ -116,7 +116,7 @@ function parseCroatianFloat(s: string | undefined): number | null {
   return suffix ? num * (multipliers[suffix] ?? 1) : num;
 }
 
-const FETCH_HEADERS = {
+const FETCH_HEADERS: Record<string, string> = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
   Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
   'Accept-Language': 'hr-HR,hr;q=0.9,en-US;q=0.8,en;q=0.7',
@@ -126,13 +126,63 @@ const FETCH_HEADERS = {
   'Cache-Control': 'max-age=0',
 };
 
+// Module-level ASP.NET session cookie — shared within one serverless invocation.
+let _sessionCookie: string | null = null;
+let _sessionEstablished = false;
+
+async function ensureSession(): Promise<void> {
+  if (_sessionEstablished) return;
+  _sessionEstablished = true;
+  try {
+    // Step 1: hit homepage with redirect:'manual' to capture the Set-Cookie header
+    const res = await fetch(`${BASE_URL}/`, {
+      headers: FETCH_HEADERS,
+      redirect: 'manual',
+      cache: 'no-store',
+    });
+    const setCookie = res.headers.get('set-cookie') ?? '';
+    const match = setCookie.match(/ASP\.NET_SessionId=([^;]+)/i);
+    if (match) {
+      _sessionCookie = match[1];
+      console.log(`[session] ASP.NET_SessionId established`);
+      // Step 2: follow the redirect (if any) so the server registers our session
+      const location = res.headers.get('location');
+      if (location) {
+        const fullUrl = location.startsWith('http') ? location : `${BASE_URL}${location}`;
+        await fetch(fullUrl, {
+          headers: { ...FETCH_HEADERS, Cookie: `ASP.NET_SessionId=${_sessionCookie}` },
+          cache: 'no-store',
+          redirect: 'follow',
+        });
+      }
+    } else {
+      console.warn('[session] No ASP.NET_SessionId found in Set-Cookie — proceeding without session');
+    }
+  } catch (err) {
+    console.warn(`[session] Failed to establish session: ${err}`);
+    // Proceed anyway — maybe requests will work without cookie
+  }
+}
+
+function getHeaders(): Record<string, string> {
+  return _sessionCookie
+    ? { ...FETCH_HEADERS, Cookie: `ASP.NET_SessionId=${_sessionCookie}` }
+    : FETCH_HEADERS;
+}
+
 async function fetchWithRetry(url: string): Promise<Response | null> {
+  await ensureSession();
   for (let attempt = 1; attempt <= 3; attempt++) {
     const controller = new AbortController();
     const t = setTimeout(() => controller.abort(), 5_000);
     try {
-      const res = await fetch(url, { headers: FETCH_HEADERS, cache: 'no-store', signal: controller.signal });
+      const res = await fetch(url, { headers: getHeaders(), cache: 'no-store', signal: controller.signal });
       clearTimeout(t);
+      // Detect bot-protection redirect to poruka.aspx (fetch follows 302 → 200 silently)
+      if (res.url.includes('poruka.aspx')) {
+        console.warn(`[blocked] Redirected to poruka.aspx for: ${url}`);
+        return null;
+      }
       if (res.ok) return res;
       console.warn(`[attempt ${attempt}] ${url}: HTTP ${res.status}`);
       if (res.status >= 500 && attempt < 3) {
@@ -622,6 +672,11 @@ export async function scrapeAllStocks(
   offset = 0,
   limit?: number
 ): Promise<StockData[]> {
+  // Reset session so a fresh cookie is established for every scrape run.
+  // This prevents stale/expired sessions on warm Vercel instances.
+  _sessionCookie = null;
+  _sessionEstablished = false;
+
   const allTickers = await fetchAllTickers();
   const tickers = limit !== undefined
     ? allTickers.slice(offset, offset + limit)

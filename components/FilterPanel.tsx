@@ -24,14 +24,14 @@ const fmtX = (v: number) => `${v.toFixed(1)}x`;
 // Preset filter configurations
 const PRESETS = [
   {
-    label: 'Value dionice',
-    desc: 'Nisko P/E i EV/EBITDA',
-    filters: { pe_max: 15, ev_ebitda_max: 10 } as Partial<FilterValues>,
+    label: 'Buffett podcijenjenost',
+    desc: 'Buffettova metrika > tržišna kap. za >20%',
+    filters: { buffett_undervalue_min: 0.2 } as Partial<FilterValues>,
   },
   {
-    label: 'Profitabilne',
-    desc: 'Marža >10%, razumno vrednovane',
-    filters: { net_margin_min: 10, ev_ebitda_max: 15 } as Partial<FilterValues>,
+    label: 'ROCE',
+    desc: 'Povrat na angažirani kapital >15%',
+    filters: { roce_min: 15 } as Partial<FilterValues>,
   },
 ];
 
