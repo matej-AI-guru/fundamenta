@@ -67,6 +67,7 @@ export type Stock = {
   // Izračunato
   ebitda: number | null;
   buffett_metric: number | null;
+  buffett_undervalue: number | null;
   roce: number | null;
   eps: number | null;
   book_value_per_share: number | null;

@@ -29,6 +29,7 @@ export interface StockData {
   // Izračunato
   ebitda: number | null;
   buffett_metric: number | null;
+  buffett_undervalue: number | null;
   roce: number | null;
   eps: number | null;
   book_value_per_share: number | null;
@@ -52,7 +53,7 @@ const BASE_URL = 'https://www.mojedionice.com';
 // ZSE tickers — full list as of 2026-03-01
 export const ZSE_TICKERS = [
   'ACI', 'ADPL', 'ADRS', 'ADRS2', 'ARNT', 'ATGR', 'AUHR',
-  'BRIN',
+
   'CKML', 'CROS', 'CROS2', 'CTKS',
   'DDJH', 'DLKV',
   'ERNT',
@@ -482,6 +483,12 @@ export async function fetchStockData(ticker: string): Promise<StockData | null> 
         ? cash + current_financial_assets + ebit * 10
         : null;
 
+    // Buffett metrika / Tržišna kapitalizacija - 1
+    const buffett_undervalue =
+      buffett_metric !== null && market_cap !== null && market_cap !== 0
+        ? buffett_metric / market_cap - 1
+        : null;
+
     // EBIT / (Aktiva - Kratkoročne obveze) × 100
     const roce =
       ebit !== null && total_assets !== null && current_liabilities !== null &&
@@ -521,6 +528,7 @@ export async function fetchStockData(ticker: string): Promise<StockData | null> 
       capex,
       ebitda,
       buffett_metric,
+      buffett_undervalue,
       roce,
       eps,
       book_value_per_share,

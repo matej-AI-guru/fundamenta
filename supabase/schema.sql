@@ -24,6 +24,7 @@ create table if not exists public.stocks (
   pfcf_ratio numeric,          -- Price / Free Cash Flow
   -- Calculated metrics
   buffett_metric numeric,      -- Novac + Kratk. fin. imovina + EBIT × 10
+  buffett_undervalue numeric,  -- Buffett metrika / Tržišna kap. - 1
   roce numeric,                -- EBIT / (Aktiva - Kratk. obveze) × 100 (%)
   net_margin numeric,          -- Net Profit / Revenue (%)
   roe numeric,                 -- Net Profit / Book Value of Equity (%)
