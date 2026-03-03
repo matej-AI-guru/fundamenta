@@ -70,11 +70,15 @@ export const ZSE_TICKERS = [
   'ZABA', 'ZITO',
 ];
 
-// KOEI → KOEI-R-A, KODT2 → KODT-P-A
+// Exceptions where sifSim doesn't follow the standard pattern
+const SIFSIM_OVERRIDES: Record<string, string> = {
+  'ZITO': 'ZTOS-R-B',
+};
+
+// KOEI → KOEI-R-A, KODT2 → KODT-P-A, ZITO → ZTOS-R-B
 function sifSimFromTicker(ticker: string): string {
-  if (ticker.endsWith('2')) {
-    return `${ticker.slice(0, -1)}-P-A`;
-  }
+  if (SIFSIM_OVERRIDES[ticker]) return SIFSIM_OVERRIDES[ticker];
+  if (ticker.endsWith('2')) return `${ticker.slice(0, -1)}-P-A`;
   return `${ticker}-R-A`;
 }
 
@@ -128,10 +132,6 @@ async function fetchWithRetry(url: string): Promise<Response | null> {
       clearTimeout(t);
       if (res.ok) return res;
       console.warn(`[attempt ${attempt}] ${url}: HTTP ${res.status}`);
-      if (res.status === 429 && attempt < 3) {
-        await new Promise((r) => setTimeout(r, 15_000));
-        continue;
-      }
       if (res.status >= 500 && attempt < 3) {
         await new Promise((r) => setTimeout(r, 2_000));
         continue;
