@@ -21,6 +21,10 @@
       "schedule": "40 6 * * *"
     },
     {
+      "path": "/api/status",
+      "schedule": "55 6 * * *"
+    },
+    {
       "path": "/api/alerts/send",
       "schedule": "0 7 * * *"
     }
