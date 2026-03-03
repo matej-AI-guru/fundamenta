@@ -277,9 +277,31 @@ async function fetchSazetak(sifSim: string): Promise<{
   return { name, price, market_cap, shares_outstanding, dividend, dividend_yield };
 }
 
-// Fetch Bilanca — balance sheet items by AOP number.
-// Scale depends on company: page says "u tisućama eura" (×1000) or "u eurima" (×1).
-async function fetchBilanca(sifSim: string): Promise<{
+// Label-based fallback for Bilanca tables with non-standard AOP numbering.
+// Some companies (e.g. SPAN) use an extended chart-of-accounts with different AOP numbers.
+// Searches cells[1] (description column) for an exact case-insensitive match.
+function extractByLabel(
+  $: ReturnType<typeof cheerio.load>,
+  labels: string[],
+  scale = 1
+): number | null {
+  const normalized = labels.map((l) => l.toLowerCase());
+  let result: number | null = null;
+  $('tr').each((_i, row) => {
+    if (result !== null) return false;
+    const cells = $(row).find('td');
+    if (cells.length < 3) return;
+    const cellLabel = $(cells[1]).text().trim().toLowerCase();
+    if (normalized.includes(cellLabel)) {
+      const rawVal = $(cells[2]).text().trim().split(/\s/)[0];
+      const num = parseCroatianNum(rawVal);
+      if (num !== null) result = num * scale;
+    }
+  });
+  return result;
+}
+
+type BilancaResult = {
   total_assets: number | null;
   equity: number | null;
   current_assets: number | null;
@@ -287,30 +309,66 @@ async function fetchBilanca(sifSim: string): Promise<{
   cash: number | null;
   long_term_liabilities: number | null;
   current_liabilities: number | null;
-}> {
-  const url = `${BASE_URL}/fund/IzvFinIzv.aspx?sifSim=${sifSim}&idFinIzv=1`;
-  const res = await fetchWithRetry(url);
-  if (!res) return {
+};
+
+// Tickers that use banking balance sheet format (AOP 1/3/5, always in thousands EUR)
+const BANK_TICKERS = new Set(['HPB', 'IKBA', 'SNBA', 'ZABA']);
+
+// Fetch Bilanca for banks — they use bank-specific AOP numbering:
+//   AOP 1 = Gotovina (Cash), AOP 3 = Ukupno aktiva, AOP 5 = Kapital i rezerve
+// Current assets/liabilities are not applicable for banks.
+async function fetchBilancaBank(sifSim: string): Promise<BilancaResult> {
+  const empty: BilancaResult = {
     total_assets: null, equity: null, current_assets: null,
     current_financial_assets: null, cash: null,
     long_term_liabilities: null, current_liabilities: null,
   };
+  const url = `${BASE_URL}/fund/IzvFinIzv.aspx?sifSim=${sifSim}&idFinIzv=1`;
+  const res = await fetchWithRetry(url);
+  if (!res) return empty;
+
+  const html = await res.text();
+  const $ = cheerio.load(html);
+  const scale = 1000; // Banks always report in thousands of EUR
+
+  return {
+    ...empty,
+    cash:        extractByAop($, 1, scale), // GOTOVINA
+    total_assets: extractByAop($, 3, scale), // UKUPNO AKTIVA
+    equity:      extractByAop($, 5, scale), // KAPITAL I REZERVE
+  };
+}
+
+// Fetch Bilanca — balance sheet items by AOP number.
+// Scale depends on company: page says "u tisućama eura" (×1000) or "u eurima" (×1).
+// Falls back to label-based matching for companies with non-standard AOP numbering.
+async function fetchBilanca(sifSim: string): Promise<BilancaResult> {
+  const empty: BilancaResult = {
+    total_assets: null, equity: null, current_assets: null,
+    current_financial_assets: null, cash: null,
+    long_term_liabilities: null, current_liabilities: null,
+  };
+  const url = `${BASE_URL}/fund/IzvFinIzv.aspx?sifSim=${sifSim}&idFinIzv=1`;
+  const res = await fetchWithRetry(url);
+  if (!res) return empty;
 
   const html = await res.text();
   const $ = cheerio.load(html);
 
   // Detect unit: "u tisućama eura" → multiply by 1000; "u eurima" → ×1
   const scale = html.toLowerCase().includes('tisu') ? 1000 : 1;
-  console.log(`[Bilanca ${sifSim}] scale=${scale}`);
+
+  const byAop = (aop: number) => extractByAop($, aop, scale);
+  const byLabel = (...labels: string[]) => extractByLabel($, labels, scale);
 
   return {
-    current_assets:           extractByAop($, 6,  scale),
-    current_financial_assets: extractByAop($, 9,  scale),
-    cash:                     extractByAop($, 10, scale),
-    total_assets:             extractByAop($, 13, scale),
-    equity:                   extractByAop($, 50, scale),
-    long_term_liabilities:    extractByAop($, 52, scale),
-    current_liabilities:      extractByAop($, 53, scale),
+    current_assets:           byAop(6)  ?? byLabel('kratkotrajna imovina'),
+    current_financial_assets: byAop(9)  ?? byLabel('kratkotrajna financijska imovina'),
+    cash:                     byAop(10) ?? byLabel('novac na računima i u blagajni', 'gotovina'),
+    total_assets:             byAop(13) ?? byLabel('ukupno aktiva', 'ukupna aktiva'),
+    equity:                   byAop(50) ?? byLabel('kapital i rezerve'),
+    long_term_liabilities:    byAop(52) ?? byLabel('dugoročne obveze'),
+    current_liabilities:      byAop(53) ?? byLabel('kratkoročne obveze'),
   };
 }
 
@@ -392,7 +450,7 @@ export async function fetchStockData(ticker: string): Promise<StockData | null> 
   try {
     // Fetch 4 pages sequentially with 400ms gap — parallel bursts trigger rate-limiting
     const sazetak   = await fetchSazetak(sifSim);   await delay(400);
-    const bilanca   = await fetchBilanca(sifSim);   await delay(400);
+    const bilanca   = await (BANK_TICKERS.has(ticker) ? fetchBilancaBank : fetchBilanca)(sifSim); await delay(400);
     const rdg       = await fetchRDG(sifSim);        await delay(400);
     const novcanTok = await fetchNovcanTok(sifSim);
 
