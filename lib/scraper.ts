@@ -122,14 +122,13 @@ const FETCH_HEADERS = {
 async function fetchWithRetry(url: string): Promise<Response | null> {
   for (let attempt = 1; attempt <= 3; attempt++) {
     const controller = new AbortController();
-    const t = setTimeout(() => controller.abort(), 10_000);
+    const t = setTimeout(() => controller.abort(), 5_000);
     try {
       const res = await fetch(url, { headers: FETCH_HEADERS, cache: 'no-store', signal: controller.signal });
       clearTimeout(t);
       if (res.ok) return res;
       console.warn(`[attempt ${attempt}] ${url}: HTTP ${res.status}`);
       if (res.status === 429 && attempt < 3) {
-        // Rate-limited — back off 15s and retry
         await new Promise((r) => setTimeout(r, 15_000));
         continue;
       }
@@ -140,8 +139,9 @@ async function fetchWithRetry(url: string): Promise<Response | null> {
       return null;
     } catch (err) {
       clearTimeout(t);
-      console.warn(`[attempt ${attempt}] ${url}: fetch error — ${err}`);
-      if (attempt < 3) await new Promise((r) => setTimeout(r, 2_000));
+      // Timeout or network error — fail fast, no retry
+      console.warn(`${url}: fetch failed — ${err}`);
+      return null;
     }
   }
   return null;
