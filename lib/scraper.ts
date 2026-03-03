@@ -50,7 +50,7 @@ const BASE_URL = 'https://www.mojedionice.com';
 // ZSE tickers — full list as of 2026-03-01
 export const ZSE_TICKERS = [
   'ACI', 'ADPL', 'ADRS', 'ADRS2', 'ARNT', 'ATGR', 'AUHR',
-  'BRIN', 'BSQR',
+  'BRIN',
   'CKML', 'CROS', 'CROS2', 'CTKS',
   'DDJH', 'DLKV',
   'ERNT',
@@ -118,8 +118,8 @@ const FETCH_HEADERS = {
 async function fetchWithRetry(url: string): Promise<Response | null> {
   for (let attempt = 1; attempt <= 2; attempt++) {
     const controller = new AbortController();
-    // 4s abort — keeps batches fast even when a ticker (e.g. BSQR) doesn't exist
-    const t = setTimeout(() => controller.abort(), 4_000);
+    // 8s abort — allows valid pages enough time; non-existent tickers handled by BSQR removal
+    const t = setTimeout(() => controller.abort(), 8_000);
     try {
       const res = await fetch(url, { headers: FETCH_HEADERS, cache: 'no-store', signal: controller.signal });
       clearTimeout(t);
@@ -141,41 +141,52 @@ async function fetchWithRetry(url: string): Promise<Response | null> {
 }
 
 // Extract value from a financial statement table by AOP number.
-// Table: tr → td[0]=AOP, td[1]=label, td[2]=most recent value.
 //
-// All three pages (Bilanca, RDG, Novčani tok) show ABSOLUTE EUR values.
-// scale = 1 is the correct default for all of them.
+// Two table formats exist on mojedionice.com:
+//   Bilanca (no nacPrik):  td[0]=AOP, td[1]=label,    td[2]=most recent value
+//   RDG/CF (nacPrik=24):  td[0]=seq, td[1]=AOP code, td[2]=description, td[3]=most recent value
+//
+// Strategy: prefer a match in cells[1] (RDG format, AOP often zero-padded like "001"),
+// fall back to cells[0] (Bilanca format).  Value is always at aopColIdx + 2.
+//
+// DO NOT use the tooltip — Bilanca tooltips contain absolute EUR while the cell
+// shows thousands, causing 1000× double-scaling.
 function extractByAop(
   $: ReturnType<typeof cheerio.load>,
   aop: number,
   scale = 1
 ): number | null {
+  // Try the exact number and zero-padded variants (e.g. 1 → "1", "01", "001")
+  const aopStrs = [
+    String(aop),
+    String(aop).padStart(2, '0'),
+    String(aop).padStart(3, '0'),
+  ];
+
   let result: number | null = null;
 
   $('tr').each((_i, row) => {
+    if (result !== null) return false;
     const cells = $(row).find('td');
     if (cells.length < 3) return;
 
-    const aopText = $(cells[0]).text().trim();
-    if (aopText !== String(aop)) return;
-
-    // Value is in the 3rd cell (index 2) — first data column = most recent period
-    const cell = $(cells[2]);
-    const span = cell.find('span[onmouseover]').first();
-
-    let rawVal: string;
-    if (span.length) {
-      // Prefer the full unrounded value from the tooltip
-      const onmouseover = span.attr('onmouseover') ?? '';
-      const tooltipMatch = onmouseover.match(/<td[^>]*align=right[^>]*>([-\d.,]+)<\/td>/i);
-      rawVal = tooltipMatch ? tooltipMatch[1] : span.text().trim();
-    } else {
-      rawVal = cell.text().trim();
+    // Priority 1: cells[1] contains the AOP code → RDG/CF format (value at col 3)
+    // Priority 2: cells[0] contains the AOP code → Bilanca format (value at col 2)
+    let aopColIdx = -1;
+    if (aopStrs.includes($(cells[1]).text().trim())) {
+      aopColIdx = 1;
+    } else if (aopStrs.includes($(cells[0]).text().trim())) {
+      aopColIdx = 0;
     }
+    if (aopColIdx === -1) return;
 
+    const valueColIdx = aopColIdx + 2; // always 2 columns after the AOP cell
+    if (valueColIdx >= cells.length) return;
+
+    // Use cell text directly — no tooltip (tooltip has wrong scale for Bilanca)
+    const rawVal = $(cells[valueColIdx]).text().trim().split(/\s/)[0];
     const num = parseCroatianNum(rawVal);
-    result = num !== null ? num * scale : null;
-    return false; // break
+    if (num !== null) result = num * scale;
   });
 
   return result;
@@ -256,8 +267,8 @@ async function fetchSazetak(sifSim: string): Promise<{
   return { name, price, market_cap, shares_outstanding, dividend, dividend_yield };
 }
 
-// Fetch Bilanca — balance sheet items by AOP number
-// Values are in absolute EUR (not thousands) → scale = 1 (default)
+// Fetch Bilanca — balance sheet items by AOP number.
+// Scale depends on company: page says "u tisućama eura" (×1000) or "u eurima" (×1).
 async function fetchBilanca(sifSim: string): Promise<{
   total_assets: number | null;
   equity: number | null;
@@ -278,14 +289,18 @@ async function fetchBilanca(sifSim: string): Promise<{
   const html = await res.text();
   const $ = cheerio.load(html);
 
+  // Detect unit: "u tisućama eura" → multiply by 1000; "u eurima" → ×1
+  const scale = html.toLowerCase().includes('tisu') ? 1000 : 1;
+  console.log(`[Bilanca ${sifSim}] scale=${scale}`);
+
   return {
-    current_assets:           extractByAop($, 6),    // scale=1000 default
-    current_financial_assets: extractByAop($, 9),
-    cash:                     extractByAop($, 10),
-    total_assets:             extractByAop($, 13),
-    equity:                   extractByAop($, 50),
-    long_term_liabilities:    extractByAop($, 52),
-    current_liabilities:      extractByAop($, 53),
+    current_assets:           extractByAop($, 6,  scale),
+    current_financial_assets: extractByAop($, 9,  scale),
+    cash:                     extractByAop($, 10, scale),
+    total_assets:             extractByAop($, 13, scale),
+    equity:                   extractByAop($, 50, scale),
+    long_term_liabilities:    extractByAop($, 52, scale),
+    current_liabilities:      extractByAop($, 53, scale),
   };
 }
 
@@ -308,26 +323,19 @@ async function fetchRDG(sifSim: string): Promise<{
   const depreciation = extractByAop($, 17, 1);
   const net_profit   = extractByAop($, 59, 1);
 
-  // EBIT: search by label (no fixed AOP number)
+  // EBIT: search by label.
+  // RDG table format (nacPrik=24): td[0]=seq, td[1]=AOP, td[2]=description, td[3]=value
   let ebit: number | null = null;
   $('tr').each((_i, row) => {
     if (ebit !== null) return false;
     const cells = $(row).find('td');
-    if (cells.length < 3) return;
-    const label = $(cells[1]).text().trim().toLowerCase();
+    if (cells.length < 4) return;
+    // Description is in cells[2] for nacPrik=24 format
+    const label = $(cells[2]).text().trim().toLowerCase();
     if (label.includes('operativna dobit') || label === 'ebit') {
-      const cell = $(cells[2]);
-      const span = cell.find('span[onmouseover]').first();
-      let rawVal: string;
-      if (span.length) {
-        const onmouseover = span.attr('onmouseover') ?? '';
-        const tooltipMatch = onmouseover.match(/<td[^>]*align=right[^>]*>([-\d.,]+)<\/td>/i);
-        rawVal = tooltipMatch ? tooltipMatch[1] : span.text().trim();
-      } else {
-        rawVal = cell.text().trim();
-      }
+      const rawVal = $(cells[3]).text().trim().split(/\s/)[0]; // value in cells[3]
       const num = parseCroatianNum(rawVal);
-      ebit = num; // scale = 1 (absolute)
+      ebit = num; // scale = 1 (nacPrik=24 is absolute EUR)
     }
   });
 
@@ -514,16 +522,17 @@ export async function fetchStockData(ticker: string): Promise<StockData | null> 
 
 // Scrape all stocks in concurrent batches.
 //
-// CONCURRENCY=5 → 5 tickers × 4 parallel pages = 20 concurrent requests.
-// With 4s abort (fail-fast), non-existent tickers like BSQR don't block the run.
-// Timeline: 10 batches × ~2s ≈ 20s — fits within Vercel Hobby 30s hard limit.
+// CONCURRENCY=3 → 3 tickers × 4 parallel pages = 12 concurrent requests per batch.
+// Lower concurrency avoids rate-limiting on mojedionice.com.
+// 16 batches × ~3s + 15 × 0.5s ≈ 56s — fits within Vercel Pro 300s, and
+// typically within Vercel Hobby 60s if pages respond quickly.
 export async function scrapeAllStocks(
   onProgress?: (ticker: string, index: number, total: number) => void
 ): Promise<StockData[]> {
   const tickers = await fetchAllTickers();
   console.log(`Scraping ${tickers.length} ZSE tickers from mojedionice.com`);
 
-  const CONCURRENCY = 5;
+  const CONCURRENCY = 3;
   const results: StockData[] = [];
 
   for (let i = 0; i < tickers.length; i += CONCURRENCY) {
@@ -537,7 +546,7 @@ export async function scrapeAllStocks(
     results.push(...(batchResults.filter(Boolean) as StockData[]));
 
     if (i + CONCURRENCY < tickers.length) {
-      await new Promise((r) => setTimeout(r, 300));
+      await new Promise((r) => setTimeout(r, 500));
     }
   }
 
