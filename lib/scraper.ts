@@ -115,46 +115,40 @@ const FETCH_HEADERS = {
   'Accept-Language': 'hr,en;q=0.9',
 };
 
-async function fetchWithRetry(url: string, maxRetries = 2): Promise<Response | null> {
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+async function fetchWithRetry(url: string): Promise<Response | null> {
+  for (let attempt = 1; attempt <= 2; attempt++) {
     const controller = new AbortController();
-    const t = setTimeout(() => controller.abort(), 12_000); // 12s hard timeout per request
+    // 4s abort — keeps batches fast even when a ticker (e.g. BSQR) doesn't exist
+    const t = setTimeout(() => controller.abort(), 4_000);
     try {
       const res = await fetch(url, { headers: FETCH_HEADERS, cache: 'no-store', signal: controller.signal });
       clearTimeout(t);
       if (res.ok) return res;
-      if ([429, 502, 503, 504].includes(res.status)) {
-        const wait = attempt * 1500;
-        console.warn(`${url} → HTTP ${res.status}, retrying in ${wait / 1000}s (attempt ${attempt}/${maxRetries})`);
-        await new Promise((r) => setTimeout(r, wait));
+      // Only retry server errors (5xx) — fail fast on 4xx and rate-limiting
+      if (res.status >= 500 && attempt === 1) {
+        await new Promise((r) => setTimeout(r, 500));
         continue;
       }
       console.warn(`Skipping ${url}: HTTP ${res.status}`);
       return null;
-    } catch (e) {
+    } catch {
       clearTimeout(t);
-      if (attempt < maxRetries) {
-        console.warn(`${url} → fetch error, retrying (attempt ${attempt}/${maxRetries}):`, e);
-        await new Promise((r) => setTimeout(r, 1500));
-        continue;
-      }
-      console.warn(`Giving up on ${url}:`, e);
+      // Abort or network error — don't retry, just skip
       return null;
     }
   }
-  console.warn(`Giving up on ${url} after ${maxRetries} retries`);
   return null;
 }
 
 // Extract value from a financial statement table by AOP number.
 // Table: tr → td[0]=AOP, td[1]=label, td[2]=most recent value.
 //
-// scale = 1000  for Bilanca (idFinIzv=1) — values are in thousands of EUR
-// scale = 1     for RDG / Novčani tok (idFinIzv=2,3 with nacPrik=24) — absolute EUR
+// All three pages (Bilanca, RDG, Novčani tok) show ABSOLUTE EUR values.
+// scale = 1 is the correct default for all of them.
 function extractByAop(
   $: ReturnType<typeof cheerio.load>,
   aop: number,
-  scale = 1000
+  scale = 1
 ): number | null {
   let result: number | null = null;
 
@@ -263,7 +257,7 @@ async function fetchSazetak(sifSim: string): Promise<{
 }
 
 // Fetch Bilanca — balance sheet items by AOP number
-// Values are in thousands of EUR → scale = 1000 (default)
+// Values are in absolute EUR (not thousands) → scale = 1 (default)
 async function fetchBilanca(sifSim: string): Promise<{
   total_assets: number | null;
   equity: number | null;
@@ -520,18 +514,16 @@ export async function fetchStockData(ticker: string): Promise<StockData | null> 
 
 // Scrape all stocks in concurrent batches.
 //
-// CONCURRENCY=3 → 3 tickers × 4 parallel pages = 12 concurrent requests.
-// Trade-off vs CONCURRENCY=5 (20 req) which caused rate-limiting on mojedionice.com.
-//
-// Timeline: 16 batches × ~1.8s ≈ 29s — fits within Vercel Hobby 30s hard limit.
-// On Pro plan (maxDuration=300) this completes well within budget regardless.
+// CONCURRENCY=5 → 5 tickers × 4 parallel pages = 20 concurrent requests.
+// With 4s abort (fail-fast), non-existent tickers like BSQR don't block the run.
+// Timeline: 10 batches × ~2s ≈ 20s — fits within Vercel Hobby 30s hard limit.
 export async function scrapeAllStocks(
   onProgress?: (ticker: string, index: number, total: number) => void
 ): Promise<StockData[]> {
   const tickers = await fetchAllTickers();
   console.log(`Scraping ${tickers.length} ZSE tickers from mojedionice.com`);
 
-  const CONCURRENCY = 3;
+  const CONCURRENCY = 5;
   const results: StockData[] = [];
 
   for (let i = 0; i < tickers.length; i += CONCURRENCY) {
