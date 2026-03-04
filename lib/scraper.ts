@@ -268,9 +268,10 @@ async function fetchSazetak(sifSim: string): Promise<{
   const html = await res.text();
   const $ = cheerio.load(html);
 
-  // Company name — title format: "KONČAR Elektroindustrija d.d. : KOEI-R-A : Sažetak"
-  const titleParts = $('title').text().trim().split(/\s*:\s*/);
-  const name = titleParts[0].trim() || sifSim;
+  // Company name — title format: "ACI-R-A (ACI D.D.) - MojeDionice"
+  const titleText = $('title').text().trim();
+  const parenMatch = titleText.match(/\(([^)]+)\)/);
+  const name = parenMatch ? parenMatch[1].trim() : sifSim;
 
   // Price — plain float, e.g. "760,00"
   const priceRaw = $('#ctl00_ContentPlaceHolder1_labCijenaZadnja').text().trim();
