@@ -461,13 +461,22 @@ async function fetchRDGBank(sifSim: string): Promise<{
   const scale = html.toLowerCase().includes('tisu') ? 1000 : 1;
   const byLabel = (...labels: string[]) => extractByLabel($, labels, scale);
 
+  // Row 10: total net profit for the period (ZABA: "Dobit/gubitak razdoblja")
+  // Row 11 fallback: profit attributable to parent equity holders
   const net_profit = byLabel(
-    'dobit (gubitak) poslovne godine',
+    'dobit/gubitak razdoblja',
+    'dobit (gubitak) razdoblja',
+    'dobit/gubitak tekuće godine',
     'dobit tekuće godine',
     'neto dobit tekuće godine',
-    'dobit ili gubitak za godinu',
     'dobit poslovne godine',
-    'neto dobit',
+  );
+
+  // Row 8: profit before tax = closest EBIT equivalent for banks
+  const ebit = byLabel(
+    'dobit/gubitak prije oporezivanja',
+    'dobit (gubitak) prije oporezivanja',
+    'dobit prije oporezivanja',
   );
 
   const revenue = byLabel(
@@ -479,7 +488,7 @@ async function fetchRDGBank(sifSim: string): Promise<{
     'kamatni prihodi',
   );
 
-  return { ...empty, revenue, net_profit };
+  return { ...empty, revenue, ebit, net_profit };
 }
 
 // Fetch RDG (income statement) — revenue, ebit, depreciation, net_profit
