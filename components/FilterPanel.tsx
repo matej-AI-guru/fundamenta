@@ -48,7 +48,7 @@ export default function FilterPanel({ filters, onChange, onReset, activeCount }:
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex-shrink-0">
       {/* Header */}
-      <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+      <div className="px-4 py-4 border-b border-gray-100 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h2 className="text-base font-semibold text-gray-900">Filteri</h2>
           {activeCount > 0 && (
@@ -68,7 +68,7 @@ export default function FilterPanel({ filters, onChange, onReset, activeCount }:
       </div>
 
       {/* Preset buttons */}
-      <div className="px-6 py-4 border-b border-gray-100">
+      <div className="px-4 py-4 border-b border-gray-100">
         <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-3">Gotovi odabiri</p>
         <div className="flex flex-wrap gap-2">
           {PRESETS.map((preset) => (
@@ -87,7 +87,7 @@ export default function FilterPanel({ filters, onChange, onReset, activeCount }:
       </div>
 
       {/* Primary filters */}
-      <div className="px-6 py-5 space-y-7">
+      <div className="px-4 py-5 space-y-7">
         <p className="text-xs font-medium text-gray-400 uppercase tracking-wide -mb-2">
           Glavni pokazatelji
         </p>
@@ -128,7 +128,7 @@ export default function FilterPanel({ filters, onChange, onReset, activeCount }:
       </div>
 
       {/* Additional filters toggle */}
-      <div className="px-6 pb-4">
+      <div className="px-4 pb-4">
         <button
           onClick={() => setShowAdditional((v) => !v)}
           className="w-full flex items-center justify-between py-3 px-4 rounded-xl
