@@ -488,7 +488,14 @@ async function fetchRDGBank(sifSim: string): Promise<{
     'kamatni prihodi',
   );
 
-  return { ...empty, revenue, ebit, net_profit };
+  const depreciation = byLabel(
+    'amortizacija',
+    'amortizacija i vrijednosna usklađenja',
+    'troškovi amortizacije',
+    'amortizacija dugotrajne imovine',
+  );
+
+  return { revenue, ebit, depreciation, net_profit };
 }
 
 // Fetch RDG (income statement) — revenue, ebit, depreciation, net_profit
@@ -585,8 +592,9 @@ export async function fetchStockData(ticker: string): Promise<StockData | null> 
     const { operating_cash_flow, capex } = novcanTok;
 
     // --- Calculated metrics ---
+    // For banks/insurance depreciation may not be parseable — treat as 0 rather than null
     const ebitda =
-      ebit !== null && depreciation !== null ? ebit + depreciation : null;
+      ebit !== null ? ebit + (depreciation ?? 0) : null;
 
     const free_cash_flow =
       operating_cash_flow !== null && capex !== null
