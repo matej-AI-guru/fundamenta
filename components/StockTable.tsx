@@ -12,6 +12,34 @@ type SortKey = keyof Stock;
 type SortDir = 'asc' | 'desc';
 type TabId = 'pregled' | 'vrednovanje' | 'profitabilnost' | 'bilanca';
 
+function isinCheckDigit(s: string): number {
+  const digits: number[] = [];
+  for (const ch of s) {
+    if (ch >= 'A' && ch <= 'Z') {
+      const n = ch.charCodeAt(0) - 55; // A=10, ..., Z=35
+      digits.push(Math.floor(n / 10), n % 10);
+    } else {
+      digits.push(parseInt(ch));
+    }
+  }
+  let sum = 0;
+  for (let i = digits.length - 1; i >= 0; i--) {
+    let d = digits[i];
+    if ((digits.length - i) % 2 === 1) { d *= 2; if (d > 9) d -= 9; }
+    sum += d;
+  }
+  return (10 - (sum % 10)) % 10;
+}
+
+function tickerToZseUrl(ticker: string): string {
+  const isPreferred = ticker.endsWith('2');
+  const base = isPreferred ? ticker.slice(0, -1) : ticker;
+  const padded = base.padEnd(4, '0');
+  const shareClass = isPreferred ? 'PA' : 'RA';
+  const withoutCheck = `HR${padded}${shareClass}000`;
+  return `https://zse.hr/hr/papir/310?isin=${withoutCheck}${isinCheckDigit(withoutCheck)}`;
+}
+
 function fmt(v: number | null, decimals = 2): string {
   if (v === null || v === undefined) return '—';
   if (Math.abs(v) >= 1e9) return `${(v / 1e9).toFixed(1)}B`;
@@ -47,9 +75,15 @@ const TABS: { id: TabId; label: string; columns: string[] }[] = [
 
 const COLUMNS: { key: SortKey; label: string; format: (s: Stock) => ReactNode; align?: string; tip?: string }[] = [
   { key: 'ticker', label: 'Ticker', format: (s) => (
-    <span className="inline-block bg-gray-900 text-white text-[11px] font-mono font-medium px-1.5 py-0.5 rounded tracking-wide">
+    <a
+      href={tickerToZseUrl(s.ticker)}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={(e) => e.stopPropagation()}
+      className="inline-block bg-gray-900 text-white text-[11px] font-mono font-medium px-1.5 py-0.5 rounded tracking-wide hover:bg-gray-700 transition-colors"
+    >
       {s.ticker}
-    </span>
+    </a>
   )},
   { key: 'name', label: 'Tvrtka', format: (s) => s.name },
   { key: 'price', label: 'Cijena', format: (s) => (s.price ? `${s.price.toFixed(2)} ${s.currency}` : '—') },
