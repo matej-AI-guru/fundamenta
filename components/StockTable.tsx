@@ -22,30 +22,26 @@ function fmt(v: number | null, decimals = 2): string {
 const fmtPct = (v: number | null) => (v !== null ? `${v.toFixed(2)}%` : '—');
 const fmtX = (v: number | null) => (v !== null ? `${v.toFixed(2)}x` : '—');
 
-const TABS: { id: TabId; label: string; columns: string[]; mobileColumns: string[] }[] = [
+const TABS: { id: TabId; label: string; columns: string[] }[] = [
   {
     id: 'pregled',
     label: 'Pregled',
     columns: ['ticker', 'name', 'price', 'pe_ratio', 'ev_ebitda', 'roe', 'roce', 'dividend_yield', 'dividend'],
-    mobileColumns: ['ticker', 'name', 'price', 'pe_ratio', 'roe'],
   },
   {
     id: 'vrednovanje',
     label: 'Vrednovanje',
     columns: ['ticker', 'price', 'market_cap', 'buffett_metric', 'buffett_undervalue', 'pe_ratio', 'pb_ratio', 'ev_ebitda'],
-    mobileColumns: ['ticker', 'price', 'pe_ratio', 'pb_ratio'],
   },
   {
     id: 'profitabilnost',
     label: 'Profitabilnost',
     columns: ['ticker', 'revenue', 'ebitda', 'net_margin', 'roe', 'roce', 'eps', 'free_cash_flow'],
-    mobileColumns: ['ticker', 'net_margin', 'roe', 'eps'],
   },
   {
     id: 'bilanca',
     label: 'Bilanca i RDG',
     columns: ['ticker', 'current_assets', 'current_financial_assets', 'current_liabilities', 'total_assets', 'ebit', 'current_ratio'],
-    mobileColumns: ['ticker', 'current_ratio'],
   },
 ];
 
@@ -221,8 +217,7 @@ export default function StockTable({ stocks, isLoading }: StockTableProps) {
                   className={`px-2 py-2 sm:px-4 sm:py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide
                               cursor-pointer hover:text-gray-700 select-none whitespace-nowrap transition-colors bg-white
                               ${col.align === 'right' ? 'text-right' : 'text-left'}
-                              ${col.key === 'ticker' ? 'sticky left-0 sm:left-12 z-20 border-r border-gray-100' : ''}
-                              ${!currentTab.mobileColumns.includes(col.key as string) ? 'hidden sm:table-cell' : ''}`}
+                              ${col.key === 'ticker' ? 'sticky left-0 sm:left-12 z-20 border-r border-gray-100' : ''}`}
                 >
                   <span className="inline-flex items-center gap-1">
                     {col.label}
@@ -266,7 +261,6 @@ export default function StockTable({ stocks, isLoading }: StockTableProps) {
                       ${col.align === 'right' ? 'text-right' : ''}
                       ${col.key === 'ticker' ? 'font-semibold text-gray-900 sticky left-0 sm:left-12 z-10 bg-white group-hover:bg-gray-50 border-r border-gray-100' : 'text-gray-600'}
                       ${col.key === 'name' ? 'max-w-[120px] sm:max-w-[200px] truncate' : ''}
-                      ${!currentTab.mobileColumns.includes(col.key as string) ? 'hidden sm:table-cell' : ''}
                       ${getColorClass(col.key, stock)}`}
                   >
                     {col.format(stock)}
