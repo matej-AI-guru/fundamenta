@@ -26,22 +26,22 @@ const TABS: { id: TabId; label: string; columns: string[] }[] = [
   {
     id: 'pregled',
     label: 'Pregled',
-    columns: ['ticker', 'name', 'price', 'pe_ratio', 'ev_ebitda', 'roe', 'roce', 'dividend_yield', 'dividend'],
+    columns: ['ticker', 'name', 'price', 'pe_ratio', 'ev_ebitda', 'dividend_yield', 'dividend'],
   },
   {
     id: 'vrednovanje',
-    label: 'Vrednovanje',
-    columns: ['ticker', 'price', 'market_cap', 'buffett_metric', 'buffett_undervalue', 'pe_ratio', 'pb_ratio', 'ev_ebitda'],
+    label: 'Valuacija',
+    columns: ['ticker', 'price', 'market_cap', 'buffett_metric', 'buffett_undervalue', 'ev_ebitda', 'pe_ratio', 'pb_ratio'],
   },
   {
     id: 'profitabilnost',
     label: 'Profitabilnost',
-    columns: ['ticker', 'revenue', 'ebitda', 'net_margin', 'roe', 'roce', 'eps', 'free_cash_flow'],
+    columns: ['ticker', 'net_margin', 'roe', 'roce'],
   },
   {
     id: 'bilanca',
     label: 'Bilanca i RDG',
-    columns: ['ticker', 'current_assets', 'current_financial_assets', 'current_liabilities', 'total_assets', 'ebit', 'current_ratio'],
+    columns: ['ticker', 'revenue', 'ebitda', 'eps', 'current_assets', 'current_financial_assets', 'current_liabilities', 'total_assets', 'ebit', 'current_ratio'],
   },
 ];
 
