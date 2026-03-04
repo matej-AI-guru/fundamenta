@@ -10,6 +10,7 @@ interface StockTableProps {
 
 type SortKey = keyof Stock;
 type SortDir = 'asc' | 'desc';
+type TabId = 'pregled' | 'vrednovanje' | 'profitabilnost' | 'bilanca';
 
 function fmt(v: number | null, decimals = 2): string {
   if (v === null || v === undefined) return '—';
@@ -21,7 +22,34 @@ function fmt(v: number | null, decimals = 2): string {
 const fmtPct = (v: number | null) => (v !== null ? `${v.toFixed(2)}%` : '—');
 const fmtX = (v: number | null) => (v !== null ? `${v.toFixed(2)}x` : '—');
 
-const COLUMNS: { key: SortKey; label: string; format: (s: Stock) => string; align?: string; hideOnMobile?: boolean }[] = [
+const TABS: { id: TabId; label: string; columns: string[]; mobileColumns: string[] }[] = [
+  {
+    id: 'pregled',
+    label: 'Pregled',
+    columns: ['ticker', 'name', 'price', 'market_cap', 'pe_ratio', 'ev_ebitda', 'net_margin', 'roe', 'roce', 'dividend_yield'],
+    mobileColumns: ['ticker', 'name', 'price', 'pe_ratio', 'net_margin'],
+  },
+  {
+    id: 'vrednovanje',
+    label: 'Vrednovanje',
+    columns: ['ticker', 'name', 'price', 'market_cap', 'buffett_metric', 'buffett_undervalue', 'pe_ratio', 'pb_ratio', 'ev_ebitda'],
+    mobileColumns: ['ticker', 'name', 'price', 'pe_ratio', 'pb_ratio'],
+  },
+  {
+    id: 'profitabilnost',
+    label: 'Profitabilnost',
+    columns: ['ticker', 'name', 'revenue', 'ebitda', 'net_margin', 'roe', 'roce', 'eps', 'free_cash_flow'],
+    mobileColumns: ['ticker', 'name', 'net_margin', 'roe', 'eps'],
+  },
+  {
+    id: 'bilanca',
+    label: 'Bilanca i RDG',
+    columns: ['ticker', 'name', 'dividend', 'dividend_yield', 'current_assets', 'current_financial_assets', 'current_liabilities', 'total_assets', 'ebit', 'current_ratio'],
+    mobileColumns: ['ticker', 'name', 'dividend_yield', 'current_ratio'],
+  },
+];
+
+const COLUMNS: { key: SortKey; label: string; format: (s: Stock) => string; align?: string }[] = [
   { key: 'ticker', label: 'Ticker', format: (s) => s.ticker },
   { key: 'name', label: 'Tvrtka', format: (s) => s.name },
   { key: 'price', label: 'Cijena', format: (s) => (s.price ? `${s.price.toFixed(2)} ${s.currency}` : '—') },
@@ -29,23 +57,23 @@ const COLUMNS: { key: SortKey; label: string; format: (s: Stock) => string; alig
   { key: 'pb_ratio', label: 'P/B', format: (s) => fmtX(s.pb_ratio), align: 'right' },
   { key: 'net_margin', label: 'Neto marža', format: (s) => fmtPct(s.net_margin), align: 'right' },
   { key: 'roe', label: 'ROE', format: (s) => fmtPct(s.roe), align: 'right' },
-  { key: 'buffett_metric', label: 'Buffett metrika', format: (s) => fmt(s.buffett_metric), align: 'right', hideOnMobile: true },
-  { key: 'market_cap', label: 'Tržišna kap.', format: (s) => fmt(s.market_cap), align: 'right', hideOnMobile: true },
-  { key: 'buffett_undervalue', label: 'Buffett podcijenjenost', format: (s) => fmtPct(s.buffett_undervalue !== null ? s.buffett_undervalue * 100 : null), align: 'right', hideOnMobile: true },
-  { key: 'roce', label: 'ROCE', format: (s) => fmtPct(s.roce), align: 'right', hideOnMobile: true },
-  { key: 'ebitda', label: 'EBITDA', format: (s) => fmt(s.ebitda), align: 'right', hideOnMobile: true },
-  { key: 'ebit', label: 'EBIT', format: (s) => fmt(s.ebit), align: 'right', hideOnMobile: true },
+  { key: 'buffett_metric', label: 'Buffett metrika', format: (s) => fmt(s.buffett_metric), align: 'right' },
+  { key: 'market_cap', label: 'Tržišna kap.', format: (s) => fmt(s.market_cap), align: 'right' },
+  { key: 'buffett_undervalue', label: 'Buffett podcijenjenost', format: (s) => fmtPct(s.buffett_undervalue !== null ? s.buffett_undervalue * 100 : null), align: 'right' },
+  { key: 'roce', label: 'ROCE', format: (s) => fmtPct(s.roce), align: 'right' },
+  { key: 'ebitda', label: 'EBITDA', format: (s) => fmt(s.ebitda), align: 'right' },
+  { key: 'ebit', label: 'EBIT', format: (s) => fmt(s.ebit), align: 'right' },
   { key: 'ev_ebitda', label: 'EV / EBITDA', format: (s) => fmtX(s.ev_ebitda), align: 'right' },
-  { key: 'revenue', label: 'Prihod', format: (s) => fmt(s.revenue), align: 'right', hideOnMobile: true },
-  { key: 'eps', label: 'EPS', format: (s) => fmt(s.eps), align: 'right', hideOnMobile: true },
-  { key: 'current_ratio', label: 'Tekuća likvidnost', format: (s) => fmtX(s.current_ratio), align: 'right', hideOnMobile: true },
-  { key: 'current_assets', label: 'Kratk. imovina', format: (s) => fmt(s.current_assets), align: 'right', hideOnMobile: true },
-  { key: 'current_financial_assets', label: 'Kratk. fin. imovina', format: (s) => fmt(s.current_financial_assets), align: 'right', hideOnMobile: true },
-  { key: 'current_liabilities', label: 'Kratk. obveze', format: (s) => fmt(s.current_liabilities), align: 'right', hideOnMobile: true },
-  { key: 'total_assets', label: 'Aktiva', format: (s) => fmt(s.total_assets), align: 'right', hideOnMobile: true },
-  { key: 'free_cash_flow', label: 'FCF', format: (s) => fmt(s.free_cash_flow), align: 'right', hideOnMobile: true },
-  { key: 'dividend', label: 'Dividenda', format: (s) => (s.dividend !== null ? `${s.dividend.toFixed(2)} ${s.currency}` : '—'), align: 'right', hideOnMobile: true },
-  { key: 'dividend_yield', label: 'Div. prinos', format: (s) => fmtPct(s.dividend_yield), align: 'right', hideOnMobile: true },
+  { key: 'revenue', label: 'Prihod', format: (s) => fmt(s.revenue), align: 'right' },
+  { key: 'eps', label: 'EPS', format: (s) => fmt(s.eps), align: 'right' },
+  { key: 'current_ratio', label: 'Tekuća likvidnost', format: (s) => fmtX(s.current_ratio), align: 'right' },
+  { key: 'current_assets', label: 'Kratk. imovina', format: (s) => fmt(s.current_assets), align: 'right' },
+  { key: 'current_financial_assets', label: 'Kratk. fin. imovina', format: (s) => fmt(s.current_financial_assets), align: 'right' },
+  { key: 'current_liabilities', label: 'Kratk. obveze', format: (s) => fmt(s.current_liabilities), align: 'right' },
+  { key: 'total_assets', label: 'Aktiva', format: (s) => fmt(s.total_assets), align: 'right' },
+  { key: 'free_cash_flow', label: 'FCF', format: (s) => fmt(s.free_cash_flow), align: 'right' },
+  { key: 'dividend', label: 'Dividenda', format: (s) => (s.dividend !== null ? `${s.dividend.toFixed(2)} ${s.currency}` : '—'), align: 'right' },
+  { key: 'dividend_yield', label: 'Div. prinos', format: (s) => fmtPct(s.dividend_yield), align: 'right' },
 ];
 
 function getColorClass(key: SortKey, stock: Stock): string {
@@ -61,6 +89,7 @@ function getColorClass(key: SortKey, stock: Stock): string {
 export default function StockTable({ stocks, isLoading }: StockTableProps) {
   const [sortKey, setSortKey] = useState<SortKey>('ticker');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
+  const [activeTab, setActiveTab] = useState<TabId>('pregled');
   const [watchlist, setWatchlist] = useState<Set<string>>(() => {
     if (typeof window === 'undefined') return new Set();
     try {
@@ -69,6 +98,19 @@ export default function StockTable({ stocks, isLoading }: StockTableProps) {
       return new Set();
     }
   });
+
+  const currentTab = TABS.find(t => t.id === activeTab)!;
+
+  const handleTabChange = (tabId: TabId) => {
+    const tab = TABS.find(t => t.id === tabId)!;
+    setActiveTab(tabId);
+    if (!tab.columns.includes(sortKey as string)) {
+      setSortKey('ticker');
+      setSortDir('asc');
+    }
+  };
+
+  const activeColumns = COLUMNS.filter(col => currentTab.columns.includes(col.key as string));
 
   const toggleWatchlist = (ticker: string) => {
     setWatchlist((prev) => {
@@ -99,9 +141,9 @@ export default function StockTable({ stocks, isLoading }: StockTableProps) {
   });
 
   const exportCsv = () => {
-    const headers = COLUMNS.map((c) => c.label).join(',');
+    const headers = activeColumns.map((c) => c.label).join(',');
     const rows = sorted
-      .map((s) => COLUMNS.map((c) => `"${c.format(s)}"`).join(','))
+      .map((s) => activeColumns.map((c) => `"${c.format(s)}"`).join(','))
       .join('\n');
     const blob = new Blob([`${headers}\n${rows}`], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -133,21 +175,37 @@ export default function StockTable({ stocks, isLoading }: StockTableProps) {
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden h-full flex flex-col">
-      {/* Table header */}
-      <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-        <p className="text-sm font-medium text-gray-500">
-          <span className="text-gray-900 font-semibold">{stocks.length}</span> dionica
-        </p>
-        <button
-          onClick={exportCsv}
-          className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 transition-colors"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round"
-              d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-          </svg>
-          Export CSV
-        </button>
+      {/* Header: tabs + count/export */}
+      <div className="px-6 py-4 border-b border-gray-100 flex-shrink-0">
+        <div className="flex gap-1 mb-3 flex-wrap">
+          {TABS.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => handleTabChange(tab.id)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all
+                ${activeTab === tab.id
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white text-gray-500 hover:text-gray-700 border border-gray-200'}`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-medium text-gray-500">
+            <span className="text-gray-900 font-semibold">{stocks.length}</span> dionica
+          </p>
+          <button
+            onClick={exportCsv}
+            className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round"
+                d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+            </svg>
+            Export CSV
+          </button>
+        </div>
       </div>
 
       {/* Scrollable table */}
@@ -156,7 +214,7 @@ export default function StockTable({ stocks, isLoading }: StockTableProps) {
           <thead className="sticky top-0 z-30">
             <tr className="border-b border-gray-100 bg-white">
               <th className="hidden sm:table-cell pl-6 pr-2 py-3 text-left sticky left-0 bg-white z-20 w-12" />
-              {COLUMNS.map((col) => (
+              {activeColumns.map((col) => (
                 <th
                   key={col.key}
                   onClick={() => handleSort(col.key)}
@@ -164,7 +222,7 @@ export default function StockTable({ stocks, isLoading }: StockTableProps) {
                               cursor-pointer hover:text-gray-700 select-none whitespace-nowrap transition-colors bg-white
                               ${col.align === 'right' ? 'text-right' : 'text-left'}
                               ${col.key === 'ticker' ? 'sticky left-0 sm:left-12 z-20 border-r border-gray-100' : ''}
-                              ${col.hideOnMobile ? 'hidden sm:table-cell' : ''}`}
+                              ${!currentTab.mobileColumns.includes(col.key as string) ? 'hidden sm:table-cell' : ''}`}
                 >
                   <span className="inline-flex items-center gap-1">
                     {col.label}
@@ -201,15 +259,15 @@ export default function StockTable({ stocks, isLoading }: StockTableProps) {
                     </svg>
                   </button>
                 </td>
-                {COLUMNS.map((col) => (
+                {activeColumns.map((col) => (
                   <td
                     key={col.key}
-                    className={`px-2 py-2 sm:px-4 sm:py-3 whitespace-nowrap ${
-                      col.align === 'right' ? 'text-right' : ''
-                    } ${col.key === 'ticker' ? 'font-semibold text-gray-900 sticky left-0 sm:left-12 z-10 bg-white group-hover:bg-gray-50 border-r border-gray-100' : 'text-gray-600'}
-                    ${col.key === 'name' ? 'max-w-[120px] sm:max-w-[200px] truncate' : ''}
-                    ${col.hideOnMobile ? 'hidden sm:table-cell' : ''}
-                    ${getColorClass(col.key, stock)}`}
+                    className={`px-2 py-2 sm:px-4 sm:py-3 whitespace-nowrap
+                      ${col.align === 'right' ? 'text-right' : ''}
+                      ${col.key === 'ticker' ? 'font-semibold text-gray-900 sticky left-0 sm:left-12 z-10 bg-white group-hover:bg-gray-50 border-r border-gray-100' : 'text-gray-600'}
+                      ${col.key === 'name' ? 'max-w-[120px] sm:max-w-[200px] truncate' : ''}
+                      ${!currentTab.mobileColumns.includes(col.key as string) ? 'hidden sm:table-cell' : ''}
+                      ${getColorClass(col.key, stock)}`}
                   >
                     {col.format(stock)}
                   </td>

@@ -343,16 +343,6 @@ export default function FilterPanel({ filters, onChange, onReset, activeCount }:
               description="1/P/E — koliko zarađuješ za svaku kunu uloženu (izračunato)"
             />
 
-            <RangeSlider
-              label="Dionice u opticaju"
-              min={0}
-              max={100_000_000}
-              step={10_000}
-              value={[filters.shares_min ?? null, filters.shares_max ?? null]}
-              onChange={setRange('shares_min', 'shares_max')}
-              formatValue={fmt}
-            />
-
           </div>
         )}
       </div>

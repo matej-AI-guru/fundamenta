@@ -47,7 +47,6 @@ export async function GET(req: NextRequest) {
     query = applyRange(query, 'eps', filters.eps_min, filters.eps_max);
     query = applyRange(query, 'roe', filters.roe_min, filters.roe_max);
     query = applyRange(query, 'earnings_yield', filters.earnings_yield_min, filters.earnings_yield_max);
-    query = applyRange(query, 'shares_outstanding', filters.shares_min, filters.shares_max);
     query = applyRange(query, 'ev_ebitda', filters.ev_ebitda_min, filters.ev_ebitda_max);
     query = applyRange(query, 'ebit', filters.ebit_min, filters.ebit_max);
     query = applyRange(query, 'current_ratio', filters.current_ratio_min, filters.current_ratio_max);

@@ -122,8 +122,6 @@ export type FilterValues = {
   roe_max: number | null;
   earnings_yield_min: number | null;
   earnings_yield_max: number | null;
-  shares_min: number | null;
-  shares_max: number | null;
   ev_ebitda_min: number | null;
   ev_ebitda_max: number | null;
   ebit_min: number | null;
