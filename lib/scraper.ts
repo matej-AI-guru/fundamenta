@@ -364,8 +364,18 @@ type BilancaResult = {
 // Tickers that use banking balance sheet format (AOP 1/3/5, always in thousands EUR)
 const BANK_TICKERS = new Set(['HPB', 'IKBA', 'SNBA', 'ZABA']);
 
+// Tickers that are insurance companies — different balance sheet, skip current assets/liabilities
+const INSURANCE_TICKERS = new Set(['CROS', 'CROS2']);
+
+// Returns null if value is outside realistic bounds — catches parsing errors that produce
+// absurd ratios (e.g. near-zero equity blowing up P/B, wrong AOP giving tiny liabilities)
+function sanity(v: number | null, min: number, max: number): number | null {
+  return v !== null && v >= min && v <= max ? v : null;
+}
+
 // Fetch Bilanca for banks — they use bank-specific AOP numbering:
 //   AOP 1 = Gotovina (Cash), AOP 3 = Ukupno aktiva, AOP 5 = Kapital i rezerve
+// Label-based fallback handles variations in bank statement formatting.
 // Current assets/liabilities are not applicable for banks.
 async function fetchBilancaBank(sifSim: string): Promise<BilancaResult> {
   const empty: BilancaResult = {
@@ -381,11 +391,14 @@ async function fetchBilancaBank(sifSim: string): Promise<BilancaResult> {
   const $ = cheerio.load(html);
   const scale = 1000; // Banks always report in thousands of EUR
 
+  const byAop = (aop: number) => extractByAop($, aop, scale);
+  const byLabel = (...labels: string[]) => extractByLabel($, labels, scale);
+
   return {
     ...empty,
-    cash:        extractByAop($, 1, scale), // GOTOVINA
-    total_assets: extractByAop($, 3, scale), // UKUPNO AKTIVA
-    equity:      extractByAop($, 5, scale), // KAPITAL I REZERVE
+    cash:         byAop(1) ?? byLabel('gotovina i gotovinski ekvivalenti', 'gotovina i novčanica', 'gotovina'),
+    total_assets: byAop(3) ?? byLabel('ukupno aktiva', 'ukupna imovina', 'ukupna aktiva', 'imovina'),
+    equity:       byAop(5) ?? byLabel('kapital i rezerve', 'dionički kapital i rezerve', 'kapital'),
   };
 }
 
@@ -500,7 +513,7 @@ export async function fetchStockData(ticker: string): Promise<StockData | null> 
   try {
     // Fetch 4 pages sequentially with 400ms gap — parallel bursts trigger rate-limiting
     const sazetak   = await fetchSazetak(sifSim);   await delay(400);
-    const bilanca   = await (BANK_TICKERS.has(ticker) ? fetchBilancaBank : fetchBilanca)(sifSim); await delay(400);
+    const bilanca   = await (BANK_TICKERS.has(ticker) || INSURANCE_TICKERS.has(ticker) ? fetchBilancaBank : fetchBilanca)(sifSim); await delay(400);
     const rdg       = await fetchRDG(sifSim);        await delay(400);
     const novcanTok = await fetchNovcanTok(sifSim);
 
@@ -604,8 +617,21 @@ export async function fetchStockData(ticker: string): Promise<StockData | null> 
         ? (ebit / (total_assets - current_liabilities)) * 100
         : null;
 
+    // Sanity caps — null-out ratios that are astronomically large/small due to parsing errors
+    // (e.g. near-zero equity exploding P/B, wrong AOP giving near-zero liabilities)
+    const pe_ratio_safe      = sanity(pe_ratio,      -500,  2000);
+    const pb_ratio_safe      = sanity(pb_ratio,         0,   200);
+    const ps_ratio_safe      = sanity(ps_ratio,         0,   500);
+    const pcf_ratio_safe     = sanity(pcf_ratio,     -500,  2000);
+    const pfcf_ratio_safe    = sanity(pfcf_ratio,    -500,  2000);
+    const ev_ebitda_safe     = sanity(ev_ebitda,     -100,   500);
+    const roe_safe           = sanity(roe,           -500,  2000);
+    const roce_safe          = sanity(roce,          -200,  2000);
+    const current_ratio_safe = sanity(current_ratio,    0,    50);
+    const earnings_yield_safe = sanity(earnings_yield, -200,  200);
+
     // Skip if we got essentially nothing
-    const hasData = [price, market_cap, revenue, net_profit, pe_ratio].some(
+    const hasData = [price, market_cap, revenue, net_profit, pe_ratio_safe].some(
       (v) => v !== null
     );
     if (!hasData) {
@@ -637,21 +663,21 @@ export async function fetchStockData(ticker: string): Promise<StockData | null> 
       ebitda,
       buffett_metric,
       buffett_undervalue,
-      roce,
+      roce:             roce_safe,
       eps,
       book_value_per_share,
-      pe_ratio,
-      pb_ratio,
-      ps_ratio,
-      pcf_ratio,
-      pfcf_ratio,
+      pe_ratio:         pe_ratio_safe,
+      pb_ratio:         pb_ratio_safe,
+      ps_ratio:         ps_ratio_safe,
+      pcf_ratio:        pcf_ratio_safe,
+      pfcf_ratio:       pfcf_ratio_safe,
       net_margin,
-      roe,
-      earnings_yield,
+      roe:              roe_safe,
+      earnings_yield:   earnings_yield_safe,
       revenue_per_share,
       free_cash_flow,
-      ev_ebitda,
-      current_ratio,
+      ev_ebitda:        ev_ebitda_safe,
+      current_ratio:    current_ratio_safe,
       currency: 'EUR',
     };
   } catch (err) {
