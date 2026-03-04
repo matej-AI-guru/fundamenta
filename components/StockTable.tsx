@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useState, useMemo, type ReactNode } from 'react';
 import type { Stock } from '@/lib/supabase';
 
 interface StockTableProps {
@@ -8,7 +8,7 @@ interface StockTableProps {
   isLoading: boolean;
 }
 
-type SortKey = keyof Stock;
+type SortKey = keyof Stock | 'score';
 type SortDir = 'asc' | 'desc';
 type TabId = 'pregled' | 'vrednovanje' | 'profitabilnost' | 'bilanca';
 
@@ -16,7 +16,7 @@ function isinCheckDigit(s: string): number {
   const digits: number[] = [];
   for (const ch of s) {
     if (ch >= 'A' && ch <= 'Z') {
-      const n = ch.charCodeAt(0) - 55; // A=10, ..., Z=35
+      const n = ch.charCodeAt(0) - 55;
       digits.push(Math.floor(n / 10), n % 10);
     } else {
       digits.push(parseInt(ch));
@@ -50,6 +50,78 @@ function fmt(v: number | null, decimals = 2): string {
 const fmtPct = (v: number | null) => (v !== null ? `${v.toFixed(2)}%` : '—');
 const fmtX = (v: number | null) => (v !== null ? `${v.toFixed(2)}x` : '—');
 
+// ---------------------------------------------------------------------------
+// Composite score
+// Rast prihoda (YoY) izostavljen — nema prethodne godine u bazi.
+// Preostalih 85% težina renormalizira se automatski na 100% po dionici.
+// ---------------------------------------------------------------------------
+const SCORE_COMPONENTS: { key: keyof Stock; weight: number; higherIsBetter: boolean }[] = [
+  { key: 'roce',          weight: 0.25, higherIsBetter: true  },
+  { key: 'pe_ratio',      weight: 0.20, higherIsBetter: false },
+  { key: 'ev_ebitda',     weight: 0.15, higherIsBetter: false },
+  { key: 'net_margin',    weight: 0.15, higherIsBetter: true  },
+  { key: 'dividend_yield', weight: 0.10, higherIsBetter: true  },
+];
+
+const SCORE_TIP =
+  'Kompozitni score (0–10) relativni percentilni ranking unutar prikazanih dionica.\n' +
+  'Komponente: ROCE 29% · P/E inv. 24% · EV/EBITDA inv. 18% · Neto marža 18% · Div. prinos 12%.\n' +
+  'Outlieri klipani na 5.–95. percentil. Nedostajući podaci → renormalizirane težine.\n' +
+  'Rast prihoda (YoY) izostavljen (nema podataka o prethodnoj godini).';
+
+function computeScores(stocks: Stock[]): Map<string, number | null> {
+  const compMaps = new Map<keyof Stock, Map<string, number>>();
+
+  for (const comp of SCORE_COMPONENTS) {
+    const valid = stocks.filter(s => {
+      const v = s[comp.key] as number | null;
+      if (v === null || v === undefined || !isFinite(v as number)) return false;
+      if (comp.key === 'pe_ratio' && (v as number) <= 0) return false;
+      return true;
+    });
+    if (valid.length < 2) continue;
+
+    const vals = valid.map(s => s[comp.key] as number);
+    const asc = [...vals].sort((a, b) => a - b);
+
+    // Clip at 5th / 95th percentile
+    const lo = asc[Math.floor(0.05 * (asc.length - 1))];
+    const hi = asc[Math.floor(0.95 * (asc.length - 1))];
+    const clipped = vals.map(v => Math.max(lo, Math.min(hi, v)));
+    const clippedAsc = [...clipped].sort((a, b) => a - b);
+
+    const rankMap = new Map<string, number>();
+    for (let i = 0; i < valid.length; i++) {
+      const v = clipped[i];
+      // Midpoint percentile for ties
+      const below = clippedAsc.filter(x => x < v).length;
+      const equal = clippedAsc.filter(x => x === v).length;
+      const pct = (below + equal / 2) / clippedAsc.length;
+      rankMap.set(valid[i].ticker, (comp.higherIsBetter ? pct : 1 - pct) * 10);
+    }
+    compMaps.set(comp.key, rankMap);
+  }
+
+  const result = new Map<string, number | null>();
+  for (const stock of stocks) {
+    let weightedSum = 0;
+    let totalWeight = 0;
+    for (const comp of SCORE_COMPONENTS) {
+      const m = compMaps.get(comp.key);
+      if (!m) continue;
+      const s = m.get(stock.ticker);
+      if (s === undefined) continue;
+      weightedSum += s * comp.weight;
+      totalWeight += comp.weight;
+    }
+    result.set(stock.ticker, totalWeight > 0 ? weightedSum / totalWeight : null);
+  }
+  return result;
+}
+
+// ---------------------------------------------------------------------------
+// Tabs
+// ---------------------------------------------------------------------------
 const TABS: { id: TabId; label: string; columns: string[] }[] = [
   {
     id: 'pregled',
@@ -59,7 +131,7 @@ const TABS: { id: TabId; label: string; columns: string[] }[] = [
   {
     id: 'vrednovanje',
     label: 'Valuacija',
-    columns: ['ticker', 'price', 'market_cap', 'buffett_metric', 'buffett_undervalue', 'ev_ebitda', 'pe_ratio', 'pb_ratio'],
+    columns: ['ticker', 'score', 'price', 'market_cap', 'buffett_metric', 'buffett_undervalue', 'ev_ebitda', 'pe_ratio', 'pb_ratio'],
   },
   {
     id: 'profitabilnost',
@@ -73,57 +145,90 @@ const TABS: { id: TabId; label: string; columns: string[] }[] = [
   },
 ];
 
-const COLUMNS: { key: SortKey; label: string; format: (s: Stock) => ReactNode; align?: string; tip?: string }[] = [
-  { key: 'ticker', label: 'Ticker', format: (s) => (
-    <a
-      href={tickerToZseUrl(s.ticker)}
-      target="_blank"
-      rel="noopener noreferrer"
-      onClick={(e) => e.stopPropagation()}
-      className="inline-block bg-gray-900 text-white text-[11px] font-mono font-medium px-1.5 py-0.5 rounded tracking-wide hover:bg-gray-700 transition-colors"
-    >
-      {s.ticker}
-    </a>
-  )},
-  { key: 'name', label: 'Tvrtka', format: (s) => s.name },
-  { key: 'price', label: 'Cijena', format: (s) => (s.price ? `${s.price.toFixed(2)} ${s.currency}` : '—') },
-  { key: 'pe_ratio', label: 'P/E', format: (s) => fmtX(s.pe_ratio), align: 'right', tip: 'Cijena dionice / Zarada po dionici' },
-  { key: 'pb_ratio', label: 'P/B', format: (s) => fmtX(s.pb_ratio), align: 'right', tip: 'Cijena / Knjigovodstvena vrijednost' },
-  { key: 'net_margin', label: 'Neto marža', format: (s) => fmtPct(s.net_margin), align: 'right', tip: 'Neto dobit / Prihod' },
-  { key: 'roe', label: 'ROE', format: (s) => fmtPct(s.roe), align: 'right', tip: 'Povrat na kapital (Neto dobit / Kapital)' },
-  { key: 'buffett_metric', label: 'Buffett metrika', format: (s) => fmt(s.buffett_metric), align: 'right', tip: 'Novac + Kratk. fin. imovina + EBIT × 10' },
-  { key: 'market_cap', label: 'Tržišna kap.', format: (s) => fmt(s.market_cap), align: 'right', tip: 'Ukupna tržišna vrijednost tvrtke' },
-  { key: 'buffett_undervalue', label: 'Buffett podcijenjenost', format: (s) => fmtPct(s.buffett_undervalue !== null ? s.buffett_undervalue * 100 : null), align: 'right', tip: '(Buffett metrika / Tržišna kap.) − 1' },
-  { key: 'roce', label: 'ROCE', format: (s) => fmtPct(s.roce), align: 'right', tip: 'Povrat na angažirani kapital: EBIT / (Aktiva − Kratk. obveze)' },
-  { key: 'ebitda', label: 'EBITDA', format: (s) => fmt(s.ebitda), align: 'right', tip: 'Dobit prije kamata, poreza, amortizacije' },
-  { key: 'ebit', label: 'EBIT', format: (s) => fmt(s.ebit), align: 'right', tip: 'Dobit prije kamata i poreza' },
-  { key: 'ev_ebitda', label: 'EV / EBITDA', format: (s) => fmtX(s.ev_ebitda), align: 'right', tip: 'Vrijednost poduzeća / EBITDA' },
-  { key: 'revenue', label: 'Prihod', format: (s) => fmt(s.revenue), align: 'right', tip: 'Ukupni godišnji prihod' },
-  { key: 'eps', label: 'EPS', format: (s) => fmt(s.eps), align: 'right', tip: 'Dobit po dionici (Neto dobit / Broj dionica)' },
-  { key: 'current_ratio', label: 'Tekuća likvidnost', format: (s) => fmtX(s.current_ratio), align: 'right', tip: 'Kratk. imovina / Kratk. obveze' },
-  { key: 'current_assets', label: 'Kratk. imovina', format: (s) => fmt(s.current_assets), align: 'right', tip: 'Kratkotrajna imovina (AOP 006)' },
-  { key: 'current_financial_assets', label: 'Kratk. fin. imovina', format: (s) => fmt(s.current_financial_assets), align: 'right', tip: 'Kratkotrajna financijska imovina (AOP 009)' },
-  { key: 'current_liabilities', label: 'Kratk. obveze', format: (s) => fmt(s.current_liabilities), align: 'right', tip: 'Kratkoročne obveze (AOP 053)' },
-  { key: 'total_assets', label: 'Aktiva', format: (s) => fmt(s.total_assets), align: 'right', tip: 'Ukupna imovina (AOP 013)' },
-  { key: 'free_cash_flow', label: 'FCF', format: (s) => fmt(s.free_cash_flow), align: 'right', tip: 'Slobodni novčani tok (Operativni CF − CapEx)' },
-  { key: 'dividend', label: 'Dividenda', format: (s) => (s.dividend !== null ? `${s.dividend.toFixed(2)} ${s.currency}` : '—'), align: 'right' },
-  { key: 'dividend_yield', label: 'Div. prinos', format: (s) => fmtPct(s.dividend_yield), align: 'right', tip: 'Godišnja dividenda / Cijena dionice' },
-];
-
+// ---------------------------------------------------------------------------
+// Colour helpers
+// ---------------------------------------------------------------------------
 function getColorClass(key: SortKey, stock: Stock): string {
-  if (key === 'net_margin' && stock.net_margin !== null) {
+  if (key === 'net_margin' && stock.net_margin !== null)
     return stock.net_margin > 0 ? 'text-emerald-600' : 'text-red-500';
-  }
-  if (key === 'roe' && stock.roe !== null) {
+  if (key === 'roe' && stock.roe !== null)
     return stock.roe > 0 ? 'text-emerald-600' : 'text-red-500';
-  }
   return '';
 }
 
+function scoreColor(v: number): string {
+  if (v >= 7) return 'text-emerald-600';
+  if (v >= 4) return 'text-amber-500';
+  return 'text-red-500';
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
 export default function StockTable({ stocks, isLoading }: StockTableProps) {
   const [sortKey, setSortKey] = useState<SortKey>('ticker');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [activeTab, setActiveTab] = useState<TabId>('pregled');
+
+  const scoreMap = useMemo(() => computeScores(stocks), [stocks]);
+
+  // Column definitions — inside component so score format closes over scoreMap
+  const COLUMNS = useMemo<{ key: SortKey; label: string; format: (s: Stock) => ReactNode; align?: string; tip?: string }[]>(
+    () => [
+      { key: 'ticker', label: 'Ticker', format: (s) => (
+        <a
+          href={tickerToZseUrl(s.ticker)}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="inline-block bg-gray-900 text-white text-[11px] font-mono font-medium px-1.5 py-0.5 rounded tracking-wide hover:bg-gray-700 transition-colors"
+        >
+          {s.ticker}
+        </a>
+      )},
+      { key: 'name', label: 'Tvrtka', format: (s) => s.name },
+      { key: 'price', label: 'Cijena', format: (s) => (s.price ? `${s.price.toFixed(2)} ${s.currency}` : '—') },
+      { key: 'pe_ratio', label: 'P/E', format: (s) => fmtX(s.pe_ratio), align: 'right', tip: 'Cijena dionice / Zarada po dionici' },
+      { key: 'pb_ratio', label: 'P/B', format: (s) => fmtX(s.pb_ratio), align: 'right', tip: 'Cijena / Knjigovodstvena vrijednost' },
+      { key: 'net_margin', label: 'Neto marža', format: (s) => fmtPct(s.net_margin), align: 'right', tip: 'Neto dobit / Prihod' },
+      { key: 'roe', label: 'ROE', format: (s) => fmtPct(s.roe), align: 'right', tip: 'Povrat na kapital (Neto dobit / Kapital)' },
+      { key: 'buffett_metric', label: 'Buffett metrika', format: (s) => fmt(s.buffett_metric), align: 'right', tip: 'Novac + Kratk. fin. imovina + EBIT × 10' },
+      { key: 'market_cap', label: 'Tržišna kap.', format: (s) => fmt(s.market_cap), align: 'right', tip: 'Ukupna tržišna vrijednost tvrtke' },
+      { key: 'buffett_undervalue', label: 'Buffett podcijenjenost', format: (s) => fmtPct(s.buffett_undervalue !== null ? s.buffett_undervalue * 100 : null), align: 'right', tip: '(Buffett metrika / Tržišna kap.) − 1' },
+      { key: 'roce', label: 'ROCE', format: (s) => fmtPct(s.roce), align: 'right', tip: 'Povrat na angažirani kapital: EBIT / (Aktiva − Kratk. obveze)' },
+      { key: 'ebitda', label: 'EBITDA', format: (s) => fmt(s.ebitda), align: 'right', tip: 'Dobit prije kamata, poreza, amortizacije' },
+      { key: 'ebit', label: 'EBIT', format: (s) => fmt(s.ebit), align: 'right', tip: 'Dobit prije kamata i poreza' },
+      { key: 'ev_ebitda', label: 'EV / EBITDA', format: (s) => fmtX(s.ev_ebitda), align: 'right', tip: 'Vrijednost poduzeća / EBITDA' },
+      { key: 'revenue', label: 'Prihod', format: (s) => fmt(s.revenue), align: 'right', tip: 'Ukupni godišnji prihod' },
+      { key: 'eps', label: 'EPS', format: (s) => fmt(s.eps), align: 'right', tip: 'Dobit po dionici (Neto dobit / Broj dionica)' },
+      { key: 'current_ratio', label: 'Tekuća likvidnost', format: (s) => fmtX(s.current_ratio), align: 'right', tip: 'Kratk. imovina / Kratk. obveze' },
+      { key: 'current_assets', label: 'Kratk. imovina', format: (s) => fmt(s.current_assets), align: 'right', tip: 'Kratkotrajna imovina (AOP 006)' },
+      { key: 'current_financial_assets', label: 'Kratk. fin. imovina', format: (s) => fmt(s.current_financial_assets), align: 'right', tip: 'Kratkotrajna financijska imovina (AOP 009)' },
+      { key: 'current_liabilities', label: 'Kratk. obveze', format: (s) => fmt(s.current_liabilities), align: 'right', tip: 'Kratkoročne obveze (AOP 053)' },
+      { key: 'total_assets', label: 'Aktiva', format: (s) => fmt(s.total_assets), align: 'right', tip: 'Ukupna imovina (AOP 013)' },
+      { key: 'free_cash_flow', label: 'FCF', format: (s) => fmt(s.free_cash_flow), align: 'right', tip: 'Slobodni novčani tok (Operativni CF − CapEx)' },
+      { key: 'dividend', label: 'Dividenda', format: (s) => (s.dividend !== null ? `${s.dividend.toFixed(2)} ${s.currency}` : '—'), align: 'right' },
+      { key: 'dividend_yield', label: 'Div. prinos', format: (s) => fmtPct(s.dividend_yield), align: 'right', tip: 'Godišnja dividenda / Cijena dionice' },
+      // Score column — closes over scoreMap
+      {
+        key: 'score',
+        label: 'Score',
+        align: 'right',
+        tip: SCORE_TIP,
+        format: (s) => {
+          const v = scoreMap.get(s.ticker) ?? null;
+          if (v === null) return <span className="text-gray-300">—</span>;
+          return (
+            <span className={`font-semibold tabular-nums ${scoreColor(v)}`}>
+              {v.toFixed(1)}
+            </span>
+          );
+        },
+      },
+    ],
+    [scoreMap]
+  );
+
   const currentTab = TABS.find(t => t.id === activeTab)!;
 
   const handleTabChange = (tabId: TabId) => {
@@ -147,8 +252,8 @@ export default function StockTable({ stocks, isLoading }: StockTableProps) {
   };
 
   const sorted = [...stocks].sort((a, b) => {
-    const av = a[sortKey];
-    const bv = b[sortKey];
+    const av = sortKey === 'score' ? (scoreMap.get(a.ticker) ?? null) : a[sortKey as keyof Stock];
+    const bv = sortKey === 'score' ? (scoreMap.get(b.ticker) ?? null) : b[sortKey as keyof Stock];
     if (av === null || av === undefined) return 1;
     if (bv === null || bv === undefined) return -1;
     const cmp = av < bv ? -1 : av > bv ? 1 : 0;
