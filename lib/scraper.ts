@@ -328,8 +328,9 @@ async function fetchSazetak(sifSim: string): Promise<{
 }
 
 // Label-based fallback for Bilanca tables with non-standard AOP numbering.
-// Some companies (e.g. SPAN) use an extended chart-of-accounts with different AOP numbers.
-// Searches cells[1] (description column) for an exact case-insensitive match.
+// Some companies (e.g. SPAN, IG) use an extended chart-of-accounts where the label cell
+// contains extra text like "KAPITAL I REZERVE (AOP 068 do 070+...)" — so we match by prefix
+// rather than exact equality (e.g. cell starts with our label, optionally followed by space/paren).
 function extractByLabel(
   $: ReturnType<typeof cheerio.load>,
   labels: string[],
@@ -342,7 +343,13 @@ function extractByLabel(
     const cells = $(row).find('td');
     if (cells.length < 3) return;
     const cellLabel = $(cells[1]).text().trim().toLowerCase();
-    if (normalized.includes(cellLabel)) {
+    const matches = normalized.some(
+      (label) =>
+        cellLabel === label ||
+        cellLabel.startsWith(label + ' ') ||
+        cellLabel.startsWith(label + '(')
+    );
+    if (matches) {
       const rawVal = $(cells[2]).text().trim().split(/\s/)[0];
       const num = parseCroatianNum(rawVal);
       if (num !== null) result = num * scale;
