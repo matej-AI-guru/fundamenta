@@ -443,6 +443,45 @@ async function fetchBilanca(sifSim: string): Promise<BilancaResult> {
   };
 }
 
+// Fetch RDG for banks/insurance — different AOP scheme, data in thousands EUR
+// Uses label-based search; no nacPrik=24 (that param only works for standard GFI-POD)
+async function fetchRDGBank(sifSim: string): Promise<{
+  revenue: number | null;
+  ebit: number | null;
+  depreciation: number | null;
+  net_profit: number | null;
+}> {
+  const empty = { revenue: null, ebit: null, depreciation: null, net_profit: null };
+  const url = `${BASE_URL}/fund/IzvFinIzv.aspx?sifSim=${sifSim}&idFinIzv=2`;
+  const res = await fetchWithRetry(url);
+  if (!res) return empty;
+
+  const html = await res.text();
+  const $ = cheerio.load(html);
+  const scale = html.toLowerCase().includes('tisu') ? 1000 : 1;
+  const byLabel = (...labels: string[]) => extractByLabel($, labels, scale);
+
+  const net_profit = byLabel(
+    'dobit (gubitak) poslovne godine',
+    'dobit tekuće godine',
+    'neto dobit tekuće godine',
+    'dobit ili gubitak za godinu',
+    'dobit poslovne godine',
+    'neto dobit',
+  );
+
+  const revenue = byLabel(
+    'ukupni prihodi',
+    'ukupno prihodi',
+    'prihodi iz redovnih aktivnosti',
+    'neto prihodi od redovnih aktivnosti',
+    'kamatni prihodi i slični prihodi',
+    'kamatni prihodi',
+  );
+
+  return { ...empty, revenue, net_profit };
+}
+
 // Fetch RDG (income statement) — revenue, ebit, depreciation, net_profit
 // nacPrik=24 returns ABSOLUTE EUR values (not thousands) → scale = 1
 async function fetchRDG(sifSim: string): Promise<{
@@ -521,8 +560,9 @@ export async function fetchStockData(ticker: string): Promise<StockData | null> 
   try {
     // Fetch 4 pages sequentially with 400ms gap — parallel bursts trigger rate-limiting
     const sazetak   = await fetchSazetak(sifSim);   await delay(400);
-    const bilanca   = await (BANK_TICKERS.has(ticker) || INSURANCE_TICKERS.has(ticker) ? fetchBilancaBank : fetchBilanca)(sifSim); await delay(400);
-    const rdg       = await fetchRDG(sifSim);        await delay(400);
+    const isFinancial = BANK_TICKERS.has(ticker) || INSURANCE_TICKERS.has(ticker);
+    const bilanca   = await (isFinancial ? fetchBilancaBank : fetchBilanca)(sifSim); await delay(400);
+    const rdg       = await (isFinancial ? fetchRDGBank : fetchRDG)(sifSim); await delay(400);
     const novcanTok = await fetchNovcanTok(sifSim);
 
     const {
