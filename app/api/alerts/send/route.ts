@@ -39,7 +39,6 @@ async function fetchMatchingStocks(filters: Partial<FilterValues>): Promise<Stoc
   query = applyRange(query, 'eps_ttm',            filters.eps_min,           filters.eps_max);
   query = applyRange(query, 'roe',                filters.roe_min,           filters.roe_max);
   query = applyRange(query, 'earnings_yield',     filters.earnings_yield_min, filters.earnings_yield_max);
-  query = applyRange(query, 'shares_outstanding', filters.shares_min,        filters.shares_max);
   query = applyRange(query, 'ev_ebitda',          filters.ev_ebitda_min,     filters.ev_ebitda_max);
 
   const { data } = await query;
