@@ -26,26 +26,26 @@ const TABS: { id: TabId; label: string; columns: string[]; mobileColumns: string
   {
     id: 'pregled',
     label: 'Pregled',
-    columns: ['ticker', 'name', 'price', 'market_cap', 'pe_ratio', 'ev_ebitda', 'net_margin', 'roe', 'roce', 'dividend_yield'],
-    mobileColumns: ['ticker', 'name', 'price', 'pe_ratio', 'net_margin'],
+    columns: ['ticker', 'name', 'price', 'pe_ratio', 'ev_ebitda', 'roe', 'roce', 'dividend_yield', 'dividend'],
+    mobileColumns: ['ticker', 'name', 'price', 'pe_ratio', 'roe'],
   },
   {
     id: 'vrednovanje',
     label: 'Vrednovanje',
-    columns: ['ticker', 'name', 'price', 'market_cap', 'buffett_metric', 'buffett_undervalue', 'pe_ratio', 'pb_ratio', 'ev_ebitda'],
-    mobileColumns: ['ticker', 'name', 'price', 'pe_ratio', 'pb_ratio'],
+    columns: ['ticker', 'price', 'market_cap', 'buffett_metric', 'buffett_undervalue', 'pe_ratio', 'pb_ratio', 'ev_ebitda'],
+    mobileColumns: ['ticker', 'price', 'pe_ratio', 'pb_ratio'],
   },
   {
     id: 'profitabilnost',
     label: 'Profitabilnost',
-    columns: ['ticker', 'name', 'revenue', 'ebitda', 'net_margin', 'roe', 'roce', 'eps', 'free_cash_flow'],
-    mobileColumns: ['ticker', 'name', 'net_margin', 'roe', 'eps'],
+    columns: ['ticker', 'revenue', 'ebitda', 'net_margin', 'roe', 'roce', 'eps', 'free_cash_flow'],
+    mobileColumns: ['ticker', 'net_margin', 'roe', 'eps'],
   },
   {
     id: 'bilanca',
     label: 'Bilanca i RDG',
-    columns: ['ticker', 'name', 'dividend', 'dividend_yield', 'current_assets', 'current_financial_assets', 'current_liabilities', 'total_assets', 'ebit', 'current_ratio'],
-    mobileColumns: ['ticker', 'name', 'dividend_yield', 'current_ratio'],
+    columns: ['ticker', 'current_assets', 'current_financial_assets', 'current_liabilities', 'total_assets', 'ebit', 'current_ratio'],
+    mobileColumns: ['ticker', 'current_ratio'],
   },
 ];
 
