@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { Stock } from '@/lib/supabase';
 
 interface StockTableProps {
@@ -45,31 +45,35 @@ const TABS: { id: TabId; label: string; columns: string[] }[] = [
   },
 ];
 
-const COLUMNS: { key: SortKey; label: string; format: (s: Stock) => string; align?: string }[] = [
-  { key: 'ticker', label: 'Ticker', format: (s) => s.ticker },
+const COLUMNS: { key: SortKey; label: string; format: (s: Stock) => ReactNode; align?: string; tip?: string }[] = [
+  { key: 'ticker', label: 'Ticker', format: (s) => (
+    <span className="inline-block bg-gray-900 text-white text-[11px] font-mono font-medium px-1.5 py-0.5 rounded tracking-wide">
+      {s.ticker}
+    </span>
+  )},
   { key: 'name', label: 'Tvrtka', format: (s) => s.name },
   { key: 'price', label: 'Cijena', format: (s) => (s.price ? `${s.price.toFixed(2)} ${s.currency}` : '—') },
-  { key: 'pe_ratio', label: 'P/E', format: (s) => fmtX(s.pe_ratio), align: 'right' },
-  { key: 'pb_ratio', label: 'P/B', format: (s) => fmtX(s.pb_ratio), align: 'right' },
-  { key: 'net_margin', label: 'Neto marža', format: (s) => fmtPct(s.net_margin), align: 'right' },
-  { key: 'roe', label: 'ROE', format: (s) => fmtPct(s.roe), align: 'right' },
-  { key: 'buffett_metric', label: 'Buffett metrika', format: (s) => fmt(s.buffett_metric), align: 'right' },
-  { key: 'market_cap', label: 'Tržišna kap.', format: (s) => fmt(s.market_cap), align: 'right' },
-  { key: 'buffett_undervalue', label: 'Buffett podcijenjenost', format: (s) => fmtPct(s.buffett_undervalue !== null ? s.buffett_undervalue * 100 : null), align: 'right' },
-  { key: 'roce', label: 'ROCE', format: (s) => fmtPct(s.roce), align: 'right' },
-  { key: 'ebitda', label: 'EBITDA', format: (s) => fmt(s.ebitda), align: 'right' },
-  { key: 'ebit', label: 'EBIT', format: (s) => fmt(s.ebit), align: 'right' },
-  { key: 'ev_ebitda', label: 'EV / EBITDA', format: (s) => fmtX(s.ev_ebitda), align: 'right' },
-  { key: 'revenue', label: 'Prihod', format: (s) => fmt(s.revenue), align: 'right' },
-  { key: 'eps', label: 'EPS', format: (s) => fmt(s.eps), align: 'right' },
-  { key: 'current_ratio', label: 'Tekuća likvidnost', format: (s) => fmtX(s.current_ratio), align: 'right' },
-  { key: 'current_assets', label: 'Kratk. imovina', format: (s) => fmt(s.current_assets), align: 'right' },
-  { key: 'current_financial_assets', label: 'Kratk. fin. imovina', format: (s) => fmt(s.current_financial_assets), align: 'right' },
-  { key: 'current_liabilities', label: 'Kratk. obveze', format: (s) => fmt(s.current_liabilities), align: 'right' },
-  { key: 'total_assets', label: 'Aktiva', format: (s) => fmt(s.total_assets), align: 'right' },
-  { key: 'free_cash_flow', label: 'FCF', format: (s) => fmt(s.free_cash_flow), align: 'right' },
+  { key: 'pe_ratio', label: 'P/E', format: (s) => fmtX(s.pe_ratio), align: 'right', tip: 'Cijena dionice / Zarada po dionici' },
+  { key: 'pb_ratio', label: 'P/B', format: (s) => fmtX(s.pb_ratio), align: 'right', tip: 'Cijena / Knjigovodstvena vrijednost' },
+  { key: 'net_margin', label: 'Neto marža', format: (s) => fmtPct(s.net_margin), align: 'right', tip: 'Neto dobit / Prihod' },
+  { key: 'roe', label: 'ROE', format: (s) => fmtPct(s.roe), align: 'right', tip: 'Povrat na kapital (Neto dobit / Kapital)' },
+  { key: 'buffett_metric', label: 'Buffett metrika', format: (s) => fmt(s.buffett_metric), align: 'right', tip: 'Novac + Kratk. fin. imovina + EBIT × 10' },
+  { key: 'market_cap', label: 'Tržišna kap.', format: (s) => fmt(s.market_cap), align: 'right', tip: 'Ukupna tržišna vrijednost tvrtke' },
+  { key: 'buffett_undervalue', label: 'Buffett podcijenjenost', format: (s) => fmtPct(s.buffett_undervalue !== null ? s.buffett_undervalue * 100 : null), align: 'right', tip: '(Buffett metrika / Tržišna kap.) − 1' },
+  { key: 'roce', label: 'ROCE', format: (s) => fmtPct(s.roce), align: 'right', tip: 'Povrat na angažirani kapital: EBIT / (Aktiva − Kratk. obveze)' },
+  { key: 'ebitda', label: 'EBITDA', format: (s) => fmt(s.ebitda), align: 'right', tip: 'Dobit prije kamata, poreza, amortizacije' },
+  { key: 'ebit', label: 'EBIT', format: (s) => fmt(s.ebit), align: 'right', tip: 'Dobit prije kamata i poreza' },
+  { key: 'ev_ebitda', label: 'EV / EBITDA', format: (s) => fmtX(s.ev_ebitda), align: 'right', tip: 'Vrijednost poduzeća / EBITDA' },
+  { key: 'revenue', label: 'Prihod', format: (s) => fmt(s.revenue), align: 'right', tip: 'Ukupni godišnji prihod' },
+  { key: 'eps', label: 'EPS', format: (s) => fmt(s.eps), align: 'right', tip: 'Dobit po dionici (Neto dobit / Broj dionica)' },
+  { key: 'current_ratio', label: 'Tekuća likvidnost', format: (s) => fmtX(s.current_ratio), align: 'right', tip: 'Kratk. imovina / Kratk. obveze' },
+  { key: 'current_assets', label: 'Kratk. imovina', format: (s) => fmt(s.current_assets), align: 'right', tip: 'Kratkotrajna imovina (AOP 006)' },
+  { key: 'current_financial_assets', label: 'Kratk. fin. imovina', format: (s) => fmt(s.current_financial_assets), align: 'right', tip: 'Kratkotrajna financijska imovina (AOP 009)' },
+  { key: 'current_liabilities', label: 'Kratk. obveze', format: (s) => fmt(s.current_liabilities), align: 'right', tip: 'Kratkoročne obveze (AOP 053)' },
+  { key: 'total_assets', label: 'Aktiva', format: (s) => fmt(s.total_assets), align: 'right', tip: 'Ukupna imovina (AOP 013)' },
+  { key: 'free_cash_flow', label: 'FCF', format: (s) => fmt(s.free_cash_flow), align: 'right', tip: 'Slobodni novčani tok (Operativni CF − CapEx)' },
   { key: 'dividend', label: 'Dividenda', format: (s) => (s.dividend !== null ? `${s.dividend.toFixed(2)} ${s.currency}` : '—'), align: 'right' },
-  { key: 'dividend_yield', label: 'Div. prinos', format: (s) => fmtPct(s.dividend_yield), align: 'right' },
+  { key: 'dividend_yield', label: 'Div. prinos', format: (s) => fmtPct(s.dividend_yield), align: 'right', tip: 'Godišnja dividenda / Cijena dionice' },
 ];
 
 function getColorClass(key: SortKey, stock: Stock): string {
@@ -201,6 +205,9 @@ export default function StockTable({ stocks, isLoading }: StockTableProps) {
                 >
                   <span className="inline-flex items-center gap-1">
                     {col.label}
+                    {col.tip && (
+                      <span title={col.tip} className="text-gray-300 hover:text-gray-400 cursor-default select-none text-[10px]">ⓘ</span>
+                    )}
                     {sortKey === col.key && (
                       <svg
                         className={`w-3 h-3 ${sortDir === 'asc' ? 'rotate-180' : ''} transition-transform`}
@@ -217,13 +224,13 @@ export default function StockTable({ stocks, isLoading }: StockTableProps) {
           </thead>
           <tbody className="divide-y divide-gray-50">
             {sorted.map((stock) => (
-              <tr key={stock.ticker} className="hover:bg-gray-50 transition-colors group">
+              <tr key={stock.ticker} className="hover:bg-slate-50 transition-colors group cursor-pointer">
                 {activeColumns.map((col) => (
                   <td
                     key={col.key}
                     className={`px-2 py-2 sm:px-4 sm:py-3 whitespace-nowrap
                       ${col.align === 'right' ? 'text-right' : ''}
-                      ${col.key === 'ticker' ? 'font-semibold text-gray-900 sticky left-0 z-10 bg-white group-hover:bg-gray-50 border-r border-gray-100' : 'text-gray-600'}
+                      ${col.key === 'ticker' ? 'sticky left-0 z-10 bg-white group-hover:bg-slate-50 border-r border-gray-100' : 'text-gray-600'}
                       ${col.key === 'name' ? 'max-w-[120px] sm:max-w-[200px] truncate' : ''}
                       ${getColorClass(col.key, stock)}`}
                   >

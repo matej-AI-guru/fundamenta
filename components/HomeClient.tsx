@@ -143,11 +143,11 @@ export default function HomeClient({ initialStocks, initialLastUpdated }: Props)
       <div className="flex-1 overflow-hidden flex flex-col">
         <div className="h-full max-w-[1400px] mx-auto w-full px-4 sm:px-6 flex flex-col">
           {/* Heading — desktop only */}
-          <div className="hidden lg:block py-5 flex-shrink-0">
-            <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 tracking-tight mb-1">
+          <div className="hidden lg:block py-3 flex-shrink-0">
+            <h1 className="text-2xl font-bold text-gray-900 tracking-tight mb-1">
               Filtriranje dionica
             </h1>
-            <p className="text-sm text-gray-500">
+            <p className="text-xs text-gray-500">
               Pronađi dionice na ZSE prema financijskim pokazateljima.
             </p>
           </div>
