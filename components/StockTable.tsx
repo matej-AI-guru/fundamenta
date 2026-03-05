@@ -13,6 +13,9 @@ type SortKey = keyof Stock | 'score';
 type SortDir = 'asc' | 'desc';
 type TabId = 'pregled' | 'vrednovanje' | 'profitabilnost' | 'bilanca';
 
+// ---------------------------------------------------------------------------
+// ISIN helpers
+// ---------------------------------------------------------------------------
 function isinCheckDigit(s: string): number {
   const digits: number[] = [];
   for (const ch of s) {
@@ -41,6 +44,9 @@ function tickerToZseUrl(ticker: string): string {
   return `https://zse.hr/hr/papir/310?isin=${withoutCheck}${isinCheckDigit(withoutCheck)}`;
 }
 
+// ---------------------------------------------------------------------------
+// Format helpers
+// ---------------------------------------------------------------------------
 function fmt(v: number | null, decimals = 2): string {
   if (v === null || v === undefined) return '—';
   if (Math.abs(v) >= 1e9) return `${(v / 1e9).toFixed(1)}B`;
@@ -142,6 +148,21 @@ const TABS: { id: TabId; label: string; columns: string[] }[] = [
 ];
 
 // ---------------------------------------------------------------------------
+// Mobile sort options
+// ---------------------------------------------------------------------------
+const SORT_OPTIONS: { label: string; key: SortKey; dir: SortDir }[] = [
+  { label: 'Score ↓',          key: 'score',          dir: 'desc' },
+  { label: 'Tržišna kap. ↓',  key: 'market_cap',     dir: 'desc' },
+  { label: 'P/E ↑',           key: 'pe_ratio',       dir: 'asc'  },
+  { label: 'EV/EBITDA ↑',     key: 'ev_ebitda',      dir: 'asc'  },
+  { label: 'Neto marža ↓',    key: 'net_margin',     dir: 'desc' },
+  { label: 'ROE ↓',           key: 'roe',            dir: 'desc' },
+  { label: 'ROCE ↓',          key: 'roce',           dir: 'desc' },
+  { label: 'Div. prinos ↓',   key: 'dividend_yield', dir: 'desc' },
+  { label: 'Ticker A–Z',      key: 'ticker',         dir: 'asc'  },
+];
+
+// ---------------------------------------------------------------------------
 // Colour helpers
 // ---------------------------------------------------------------------------
 function getColorClass(key: SortKey, stock: Stock): string {
@@ -159,7 +180,119 @@ function scoreColor(v: number): string {
 }
 
 // ---------------------------------------------------------------------------
-// Component
+// Stock card (mobile)
+// ---------------------------------------------------------------------------
+interface StockCardProps {
+  stock: Stock;
+  score: number | null;
+  isSelected: boolean;
+  isDisabled: boolean;
+  onToggle: () => void;
+}
+
+function MetricCell({ label, value, colorClass = '' }: { label: string; value: string; colorClass?: string }) {
+  return (
+    <div>
+      <div className="text-[10px] text-gray-400 uppercase tracking-wide mb-0.5">{label}</div>
+      <div className={`text-xs font-medium text-gray-700 ${colorClass}`}>{value}</div>
+    </div>
+  );
+}
+
+function StockCard({ stock, score, isSelected, isDisabled, onToggle }: StockCardProps) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div
+      className={`rounded-xl border p-4 transition-colors ${
+        isSelected ? 'border-blue-200 bg-blue-50/40' : 'border-gray-100 bg-white'
+      }`}
+    >
+      {/* Header row: checkbox + ticker + name + score */}
+      <div className="flex items-start justify-between mb-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={onToggle}
+            disabled={isDisabled}
+            onClick={e => e.stopPropagation()}
+            title={isDisabled ? 'Makni jednu dionicu da dodaš novu (maks. 4)' : ''}
+            className="w-3.5 h-3.5 rounded accent-blue-600 cursor-pointer disabled:opacity-25 disabled:cursor-not-allowed flex-shrink-0"
+          />
+          <a
+            href={tickerToZseUrl(stock.ticker)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-shrink-0 text-[11px] font-mono font-medium px-1.5 py-0.5 rounded-md border border-gray-200 text-gray-700 tracking-wide hover:border-blue-300 hover:text-blue-600 transition-colors"
+          >
+            {stock.ticker}
+          </a>
+          <span className="text-sm font-medium text-gray-900 truncate">{stock.name}</span>
+        </div>
+        {score !== null && (
+          <span className={`flex-shrink-0 text-sm font-semibold tabular-nums ml-2 ${scoreColor(score)}`}>
+            {score.toFixed(1)}
+          </span>
+        )}
+      </div>
+
+      {/* Price */}
+      <div className="text-base font-semibold text-gray-900 mb-3">
+        {stock.price !== null ? `${stock.price.toFixed(2)} ${stock.currency}` : '—'}
+      </div>
+
+      {/* Main metrics 2×2 */}
+      <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
+        <MetricCell label="P/E" value={fmtX(stock.pe_ratio)} />
+        <MetricCell label="EV/EBITDA" value={fmtX(stock.ev_ebitda)} />
+        <MetricCell
+          label="ROE"
+          value={fmtPct(stock.roe)}
+          colorClass={stock.roe !== null ? (stock.roe > 0 ? 'text-emerald-600' : 'text-red-500') : ''}
+        />
+        <MetricCell
+          label="Neto marža"
+          value={fmtPct(stock.net_margin)}
+          colorClass={stock.net_margin !== null ? (stock.net_margin > 0 ? 'text-emerald-600' : 'text-red-500') : ''}
+        />
+      </div>
+
+      {/* Expanded metrics */}
+      {expanded && (
+        <div className="mt-3 pt-3 border-t border-gray-100 grid grid-cols-2 gap-x-4 gap-y-2.5">
+          <MetricCell label="ROCE" value={fmtPct(stock.roce)} />
+          <MetricCell label="Tržišna kap." value={fmt(stock.market_cap)} />
+          <MetricCell label="EBITDA" value={fmt(stock.ebitda)} />
+          <MetricCell label="FCF" value={fmt(stock.free_cash_flow)} />
+          <MetricCell label="EPS" value={fmt(stock.eps)} />
+          <MetricCell label="Div. prinos" value={fmtPct(stock.dividend_yield)} />
+          <MetricCell label="P/B" value={fmtX(stock.pb_ratio)} />
+          <MetricCell label="Tekuća likv." value={fmtX(stock.current_ratio)} />
+          <MetricCell label="Prihod" value={fmt(stock.revenue)} />
+          <MetricCell label="EBIT" value={fmt(stock.ebit)} />
+        </div>
+      )}
+
+      {/* Expand toggle */}
+      <button
+        onClick={() => setExpanded(v => !v)}
+        className="mt-3 w-full text-xs text-gray-400 hover:text-gray-600 flex items-center justify-center gap-1 py-1 transition-colors"
+      >
+        {expanded ? 'Prikaži manje' : 'Prikaži više'}
+        <svg
+          className={`w-3 h-3 transition-transform ${expanded ? 'rotate-180' : ''}`}
+          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main component
 // ---------------------------------------------------------------------------
 export default function StockTable({ stocks, isLoading }: StockTableProps) {
   const [sortKey, setSortKey] = useState<SortKey>('ticker');
@@ -316,6 +449,10 @@ export default function StockTable({ stocks, isLoading }: StockTableProps) {
   // Selected stocks (in display order)
   const selectedStocks = sorted.filter(s => selected.has(s.ticker));
 
+  const currentSortValue = SORT_OPTIONS.some(o => o.key === sortKey && o.dir === sortDir)
+    ? `${sortKey}:${sortDir}`
+    : '';
+
   if (isLoading) {
     return (
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 text-center h-full flex flex-col items-center justify-center">
@@ -338,14 +475,15 @@ export default function StockTable({ stocks, isLoading }: StockTableProps) {
   return (
     <>
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden h-full flex flex-col">
-        {/* Header: tabs + count/export */}
-        <div className="px-6 py-4 border-b border-gray-100 flex-shrink-0">
-          <div className="flex gap-1 mb-3 flex-wrap">
+        {/* Header: tabs + count/sort/export */}
+        <div className="px-3 sm:px-6 py-3 sm:py-4 border-b border-gray-100 flex-shrink-0">
+          {/* Tabs — horizontal scroll on mobile */}
+          <div className="flex gap-1 mb-3 overflow-x-auto pb-0.5" style={{ scrollbarWidth: 'none' }}>
             {TABS.map(tab => (
               <button
                 key={tab.id}
                 onClick={() => handleTabChange(tab.id)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all
+                className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-all
                   ${activeTab === tab.id
                     ? 'bg-blue-600 text-white'
                     : 'bg-white text-gray-500 hover:text-gray-700 border border-gray-200'}`}
@@ -354,28 +492,66 @@ export default function StockTable({ stocks, isLoading }: StockTableProps) {
               </button>
             ))}
           </div>
-          <div className="flex items-center justify-between">
+
+          {/* Count + mobile sort dropdown + desktop export */}
+          <div className="flex items-center justify-between gap-2">
             <p className="text-sm font-medium text-gray-500">
               <span className="text-gray-900 font-semibold">{stocks.length}</span> dionica
               {selected.size > 0 && (
                 <span className="ml-2 text-blue-600 text-xs">· {selected.size} odabrano</span>
               )}
             </p>
-            <button
-              onClick={exportCsv}
-              className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 transition-colors"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round"
-                  d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-              </svg>
-              Export CSV
-            </button>
+            <div className="flex items-center gap-2">
+              {/* Sort dropdown — mobile only */}
+              <select
+                className="sm:hidden text-xs text-gray-600 border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                value={currentSortValue}
+                onChange={e => {
+                  if (!e.target.value) return;
+                  const [key, dir] = e.target.value.split(':') as [SortKey, SortDir];
+                  setSortKey(key);
+                  setSortDir(dir);
+                }}
+              >
+                {!currentSortValue && <option value="" disabled>Sortiraj po...</option>}
+                {SORT_OPTIONS.map(opt => (
+                  <option key={`${opt.key}:${opt.dir}`} value={`${opt.key}:${opt.dir}`}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+
+              {/* Export CSV — desktop only */}
+              <button
+                onClick={exportCsv}
+                className="hidden sm:flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round"
+                    d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                </svg>
+                Export CSV
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Scrollable table */}
-        <div className={`flex-1 overflow-auto ${selected.size > 0 ? 'pb-20' : ''}`}>
+        {/* ── Mobile card list (below sm) ── */}
+        <div className={`sm:hidden flex-1 min-h-0 overflow-auto p-3 space-y-2 ${selected.size > 0 ? 'pb-24' : ''}`}>
+          {sorted.map(stock => (
+            <StockCard
+              key={stock.ticker}
+              stock={stock}
+              score={scoreMap.get(stock.ticker) ?? null}
+              isSelected={selected.has(stock.ticker)}
+              isDisabled={!selected.has(stock.ticker) && selected.size >= 4}
+              onToggle={() => toggleSelect(stock.ticker)}
+            />
+          ))}
+        </div>
+
+        {/* ── Desktop table (sm+) ── */}
+        <div className={`hidden sm:block flex-1 min-h-0 overflow-auto ${selected.size > 0 ? 'pb-20' : ''}`}>
           <table className="w-full text-xs sm:text-sm">
             <thead className="sticky top-0 z-30">
               <tr className="border-b border-gray-100 bg-white">
@@ -455,50 +631,81 @@ export default function StockTable({ stocks, isLoading }: StockTableProps) {
         </div>
       </div>
 
-      {/* Sticky selection bar */}
+      {/* ── Sticky selection bar ── */}
       {selected.size > 0 && (
         <div className="fixed bottom-0 left-0 right-0 z-40 flex justify-center px-4 pb-4 pt-3 pointer-events-none">
-          <div className="bg-white/92 backdrop-blur-xl border border-gray-200 shadow-xl rounded-2xl px-4 py-3 flex items-center gap-3 pointer-events-auto w-full" style={{ maxWidth: '700px' }}>
-            {/* Selected chips */}
-            <div className="flex items-center gap-2 flex-1 flex-wrap min-w-0">
-              {[...selected].map(ticker => (
-                <span
-                  key={ticker}
-                  className="inline-flex items-center gap-1 bg-blue-50 border border-blue-200 text-blue-700 text-[11px] font-mono font-medium pl-2.5 pr-1 py-1 rounded-full"
-                >
-                  {ticker}
-                  <button
-                    onClick={() => toggleSelect(ticker)}
-                    className="w-4 h-4 flex items-center justify-center rounded-full hover:bg-blue-200 transition-colors"
+          <div
+            className="bg-white/92 backdrop-blur-xl border border-gray-200 shadow-xl rounded-2xl px-4 py-3 pointer-events-auto w-full"
+            style={{ maxWidth: '700px' }}
+          >
+            {/* Desktop: chips + actions */}
+            <div className="hidden sm:flex items-center gap-3">
+              <div className="flex items-center gap-2 flex-1 flex-wrap min-w-0">
+                {[...selected].map(ticker => (
+                  <span
+                    key={ticker}
+                    className="inline-flex items-center gap-1 bg-blue-50 border border-blue-200 text-blue-700 text-[11px] font-mono font-medium pl-2.5 pr-1 py-1 rounded-full"
                   >
-                    <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </span>
-              ))}
-              {selected.size < 4 && (
-                <span className="text-xs text-gray-400 italic">
-                  {selected.size === 1 ? 'Odaberi još jednu za usporedbu' : `+ još ${4 - selected.size}`}
-                </span>
-              )}
+                    {ticker}
+                    <button
+                      onClick={() => toggleSelect(ticker)}
+                      className="w-4 h-4 flex items-center justify-center rounded-full hover:bg-blue-200 transition-colors"
+                    >
+                      <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </span>
+                ))}
+                {selected.size < 4 && (
+                  <span className="text-xs text-gray-400 italic">
+                    {selected.size === 1 ? 'Odaberi još jednu za usporedbu' : `+ još ${4 - selected.size}`}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button
+                  onClick={() => setSelected(new Set())}
+                  className="text-xs text-gray-400 hover:text-gray-600 transition-colors px-2 py-1"
+                >
+                  Poništi
+                </button>
+                <button
+                  onClick={openComparison}
+                  disabled={selected.size < 2}
+                  className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-xl disabled:opacity-40 disabled:cursor-not-allowed hover:bg-blue-700 active:bg-blue-800 transition-colors"
+                >
+                  Usporedi →
+                </button>
+              </div>
             </div>
 
-            {/* Actions */}
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <button
-                onClick={() => setSelected(new Set())}
-                className="text-xs text-gray-400 hover:text-gray-600 transition-colors px-2 py-1"
-              >
-                Poništi
-              </button>
-              <button
-                onClick={openComparison}
-                disabled={selected.size < 2}
-                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-xl disabled:opacity-40 disabled:cursor-not-allowed hover:bg-blue-700 active:bg-blue-800 transition-colors"
-              >
-                Usporedi →
-              </button>
+            {/* Mobile: compact bar */}
+            <div className="sm:hidden flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-2 h-2 rounded-full bg-blue-600 flex-shrink-0" />
+                <span className="text-sm text-gray-700 font-medium">
+                  {selected.size} {selected.size === 1 ? 'dionica odabrana' : 'dionice odabrane'}
+                </span>
+                {selected.size === 1 && (
+                  <span className="text-xs text-gray-400 italic truncate">+ još jedna</span>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                <button
+                  onClick={() => setSelected(new Set())}
+                  className="text-xs text-gray-400 hover:text-gray-600 transition-colors px-1.5 py-1"
+                >
+                  Poništi
+                </button>
+                <button
+                  onClick={openComparison}
+                  disabled={selected.size < 2}
+                  className="px-3 py-2 bg-blue-600 text-white text-xs font-semibold rounded-xl disabled:opacity-40 disabled:cursor-not-allowed hover:bg-blue-700 active:bg-blue-800 transition-colors"
+                >
+                  Usporedi →
+                </button>
+              </div>
             </div>
           </div>
         </div>

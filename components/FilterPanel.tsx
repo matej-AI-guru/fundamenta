@@ -10,6 +10,7 @@ interface FilterPanelProps {
   onChange: (filters: Partial<FilterValues>) => void;
   onReset: () => void;
   activeCount: number;
+  compact?: boolean; // when true: no outer wrapper/shadow, no own header (drawer provides both)
 }
 
 function fmt(v: number): string {
@@ -39,38 +40,15 @@ function isPresetActive(preset: typeof PRESETS[0], filters: Partial<FilterValues
   return Object.entries(preset.filters).every(([k, v]) => filters[k as keyof FilterValues] === v);
 }
 
-export default function FilterPanel({ filters, onChange, onReset, activeCount }: FilterPanelProps) {
+export default function FilterPanel({ filters, onChange, onReset, activeCount, compact = false }: FilterPanelProps) {
   const [showAdditional, setShowAdditional] = useState(false);
-
-  const set = (key: keyof FilterValues, val: number | null) =>
-    onChange({ ...filters, [key]: val });
 
   const setRange = (minKey: keyof FilterValues, maxKey: keyof FilterValues) =>
     ([min, max]: [number | null, number | null]) =>
       onChange({ ...filters, [minKey]: min, [maxKey]: max });
 
-  return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex-shrink-0">
-      {/* Header */}
-      <div className="px-4 py-4 border-b border-gray-100 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h2 className="text-base font-semibold text-gray-900">Filteri</h2>
-          {activeCount > 0 && (
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-600">
-              {activeCount} aktivnih
-            </span>
-          )}
-        </div>
-        {activeCount > 0 && (
-          <button
-            onClick={onReset}
-            className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            Resetiraj sve
-          </button>
-        )}
-      </div>
-
+  const body = (
+    <>
       {/* Preset buttons */}
       <div className="px-4 py-4 border-b border-gray-100">
         <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-3">Gotovi odabiri</p>
@@ -351,12 +329,40 @@ export default function FilterPanel({ filters, onChange, onReset, activeCount }:
               formatValue={fmtPct}
               description="1/P/E — koliko zarađuješ za svaku kunu uloženu (izračunato)"
             />
-
           </div>
         )}
       </div>
 
       <AlertSubscribe filters={filters} />
+    </>
+  );
+
+  if (compact) {
+    return <div>{body}</div>;
+  }
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex-shrink-0">
+      {/* Header */}
+      <div className="px-4 py-4 border-b border-gray-100 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <h2 className="text-base font-semibold text-gray-900">Filteri</h2>
+          {activeCount > 0 && (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-600">
+              {activeCount} aktivnih
+            </span>
+          )}
+        </div>
+        {activeCount > 0 && (
+          <button
+            onClick={onReset}
+            className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            Resetiraj sve
+          </button>
+        )}
+      </div>
+      {body}
     </div>
   );
 }
