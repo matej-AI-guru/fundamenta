@@ -34,7 +34,9 @@ function filtersFromUrl(): Partial<FilterValues> {
   const params = new URLSearchParams(window.location.search);
   const filters: Partial<FilterValues> = {};
   params.forEach((val, key) => {
-    (filters as Record<string, number>)[key] = parseFloat(val);
+    if (key === 'compare') return; // handled separately by StockTable
+    const n = parseFloat(val);
+    if (!isNaN(n)) (filters as Record<string, number>)[key] = n;
   });
   return filters;
 }
