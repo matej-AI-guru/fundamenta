@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import FilterPanel from '@/components/FilterPanel';
 import StockTable from '@/components/StockTable';
+import StrategyCards from '@/components/StrategyCards';
 import type { Stock, FilterValues } from '@/lib/supabase';
 
 const DEBOUNCE_MS = 600;
@@ -242,6 +243,13 @@ export default function HomeClient({ initialStocks, initialLastUpdated }: Props)
               </div>
             </div>
           </div>
+
+          {/* Strategy cards */}
+          <StrategyCards
+            allStocks={initialStocks}
+            filters={filters}
+            onChange={handleFiltersChange}
+          />
 
           {/* Content row — fills remaining height */}
           <div className="flex-1 overflow-hidden flex flex-col lg:flex-row gap-6 pb-4">
