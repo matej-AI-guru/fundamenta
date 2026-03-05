@@ -50,9 +50,7 @@ export default function OGImage() {
               />
             </svg>
           </div>
-          <span style={{ fontSize: '36px', fontWeight: 700, color: 'white' }}>
-            Fundamenta
-          </span>
+          <span style={{ fontSize: '36px', fontWeight: 700, color: 'white' }}>Fundamenta</span>
           <span
             style={{
               fontSize: '16px',
@@ -67,56 +65,36 @@ export default function OGImage() {
           </span>
         </div>
 
-        {/* Heading */}
-        <div
-          style={{
-            fontSize: '56px',
-            fontWeight: 800,
-            color: 'white',
-            lineHeight: 1.1,
-            maxWidth: '800px',
-            marginBottom: '24px',
-          }}
-        >
+        {/* Heading — two separate divs instead of <br /> */}
+        <div style={{ fontSize: '56px', fontWeight: 800, color: 'white', lineHeight: 1.1 }}>
           Screener dionica
-          <br />
+        </div>
+        <div style={{ fontSize: '56px', fontWeight: 800, color: 'white', lineHeight: 1.1, marginBottom: '24px' }}>
           Zagrebačke burze
         </div>
 
-        {/* Subtitle */}
-        <div
-          style={{
-            fontSize: '24px',
-            color: '#94a3b8',
-            maxWidth: '680px',
-            lineHeight: 1.4,
-            marginBottom: '48px',
-          }}
-        >
-          Filtriraj po P/E, ROCE, EV/EBITDA i 10+ fundamentalnih pokazatelja.
-          Besplatno, bez registracije.
+        {/* Subtitle — single text node, no wrapping */}
+        <div style={{ fontSize: '22px', color: '#94a3b8', maxWidth: '680px', lineHeight: 1.4, marginBottom: '48px' }}>
+          Filtriraj po P/E, ROCE, EV/EBITDA i 10+ fundamentalnih pokazatelja. Besplatno, bez registracije.
         </div>
 
         {/* Feature pills */}
         <div style={{ display: 'flex', gap: '12px' }}>
-          {['P/E omjer', 'ROCE', 'EV/EBITDA', 'Buffett metrika', 'FCF', 'Dividende'].map(
-            (label) => (
-              <div
-                key={label}
-                style={{
-                  background: '#1e293b',
-                  color: '#93c5fd',
-                  padding: '8px 16px',
-                  borderRadius: '8px',
-                  fontSize: '18px',
-                  fontWeight: 500,
-                  border: '1px solid #1d4ed830',
-                }}
-              >
-                {label}
-              </div>
-            )
-          )}
+          {['P/E omjer', 'ROCE', 'EV/EBITDA', 'Buffett metrika', 'FCF', 'Dividende'].map((label) => (
+            <div
+              key={label}
+              style={{
+                background: '#1e293b',
+                color: '#93c5fd',
+                padding: '8px 16px',
+                borderRadius: '8px',
+                fontSize: '18px',
+                fontWeight: 500,
+              }}
+            >
+              {label}
+            </div>
+          ))}
         </div>
       </div>
     ),
