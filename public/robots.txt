@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://fundamenta-analiza.vercel.app/sitemap.xml

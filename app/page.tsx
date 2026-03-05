@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import HomeClient from '@/components/HomeClient';
+import Footer from '@/components/Footer';
 
 // Always fetch fresh data — don't cache
 export const dynamic = 'force-dynamic';
@@ -14,9 +15,12 @@ export default async function Home() {
   const initialLastUpdated = initialStocks.length > 0 ? initialStocks[0].last_updated : null;
 
   return (
-    <HomeClient
-      initialStocks={initialStocks}
-      initialLastUpdated={initialLastUpdated}
-    />
+    <>
+      <HomeClient
+        initialStocks={initialStocks}
+        initialLastUpdated={initialLastUpdated}
+      />
+      <Footer />
+    </>
   );
 }
