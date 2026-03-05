@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import type { Stock, FilterValues } from '@/lib/supabase';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -38,10 +38,13 @@ const Star = () => (
     <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
   </svg>
 );
-const Search = () => (
+const Scale = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
-    <circle cx="11" cy="11" r="8" />
-    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+    <path d="M16 16l3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1z" />
+    <path d="M2 16l3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1z" />
+    <path d="M7 21h10" />
+    <line x1="12" y1="21" x2="12" y2="3" />
+    <path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2" />
   </svg>
 );
 const BarChart = () => (
@@ -76,7 +79,7 @@ const STRATEGIES: Strategy[] = [
   {
     id: 'buffett',
     name: 'Buffett podcijenjenost',
-    description: 'Dionice čija je stvarna vrijednost veća od tržišne kap. prema Buffettovoj metodi.',
+    description: 'Buffettova vrijednost premašuje tržišnu kap. za >20% uz pristojan povrat na kapital.',
     color: 'green',
     icon: <TrendingUp />,
     filters: { buffett_undervalue_min: 0.20, roce_min: 10 },
@@ -85,7 +88,7 @@ const STRATEGIES: Strategy[] = [
   {
     id: 'quality-growth',
     name: 'Kvalitetni rast',
-    description: 'Profitabilne tvrtke s visokim povratom na kapital i razumnom valuacijom.',
+    description: 'Profitabilne tvrtke s visokim povratom na kapital i fer valuacijom.',
     color: 'blue',
     icon: <Star />,
     filters: { roce_min: 15, roe_min: 12, net_margin_min: 8, pe_max: 25 },
@@ -94,16 +97,16 @@ const STRATEGIES: Strategy[] = [
   {
     id: 'deep-value',
     name: 'Duboka vrijednost',
-    description: 'Dionice ispod fer vrijednosti — klasični Grahamov pristup traženja skrivenih dragulja.',
+    description: 'Dionice ispod fer vrijednosti — klasični Grahamov pristup.',
     color: 'amber',
-    icon: <Search />,
+    icon: <Scale />,
     filters: { pe_max: 10, pb_max: 1.2, ev_ebitda_max: 6, current_ratio_min: 1.5 },
     tags: ['P/E <10x', 'P/B <1.2x', 'EV/EBITDA <6x'],
   },
   {
     id: 'high-roce',
     name: 'Visoki ROCE',
-    description: 'Tvrtke koje svaki euro kapitala pretvaraju u visok povrat — znak kvalitete menadžmenta.',
+    description: 'Tvrtke koje svaki euro kapitala pretvaraju u visok povrat — znak kvalitete.',
     color: 'green',
     icon: <BarChart />,
     filters: { roce_min: 15 },
@@ -112,7 +115,7 @@ const STRATEGIES: Strategy[] = [
   {
     id: 'dividende',
     name: 'Dividendne dionice',
-    description: 'Dionice s redovitom i održivom dividendom za stabilan pasivni prihod.',
+    description: 'Dionice s redovitom dividendom za stabilan pasivni prihod.',
     color: 'yellow',
     icon: <Coins />,
     filters: { dividend_yield_min: 3, pe_max: 20, net_margin_min: 5, current_ratio_min: 1.0 },
@@ -121,7 +124,7 @@ const STRATEGIES: Strategy[] = [
   {
     id: 'fcf-machine',
     name: 'FCF stroj',
-    description: 'Tvrtke koje generiraju pravi novac — P/FCF < 15x uz pozitivan slobodni novčani tok.',
+    description: 'Tvrtke koje generiraju pravi novac — P/FCF < 15x uz pozitivan slobodni tok.',
     color: 'teal',
     icon: <Droplets />,
     filters: { pfcf_max: 15, free_cash_flow_min: 0, net_margin_min: 5 },
@@ -130,7 +133,7 @@ const STRATEGIES: Strategy[] = [
   {
     id: 'small-cap',
     name: 'Mala i podcijenjena',
-    description: 'Male kompanije koje veliki fondovi ignoriraju — upravo tamo gdje se krije alfa na ZSE-u.',
+    description: 'Male kompanije koje fondovi ignoriraju — alfa prilike na ZSE-u.',
     color: 'purple',
     icon: <Target />,
     filters: { market_cap_max: 100_000_000, pe_max: 15, ev_ebitda_max: 8, revenue_min: 10_000_000 },
@@ -162,12 +165,6 @@ function countLabel(n: number): string {
   return `${n} dionica`;
 }
 
-function isActive(stratFilters: Partial<FilterValues>, current: Partial<FilterValues>): boolean {
-  return Object.entries(stratFilters).every(
-    ([k, v]) => current[k as keyof FilterValues] === v
-  );
-}
-
 // ── Component ─────────────────────────────────────────────────────────────────
 interface StrategyCardsProps {
   allStocks: Stock[];
@@ -176,6 +173,19 @@ interface StrategyCardsProps {
 }
 
 export default function StrategyCards({ allStocks, filters, onChange }: StrategyCardsProps) {
+  const [activeStrategyId, setActiveStrategyId] = useState<string | null>(null);
+
+  // Auto-clear activeStrategyId if filters were changed externally (e.g., FilterPanel)
+  useEffect(() => {
+    if (activeStrategyId === null) return;
+    const strat = STRATEGIES.find(s => s.id === activeStrategyId);
+    if (!strat) return;
+    const allMatch = Object.entries(strat.filters).every(
+      ([k, v]) => filters[k as keyof FilterValues] === v
+    );
+    if (!allMatch) setActiveStrategyId(null);
+  }, [filters, activeStrategyId]);
+
   const counts = useMemo(
     () => new Map(STRATEGIES.map(s => [s.id, allStocks.filter(st => clientMatch(st, s.filters)).length])),
     [allStocks]
@@ -190,14 +200,24 @@ export default function StrategyCards({ allStocks, filters, onChange }: Strategy
       <div className="relative">
         <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
           {STRATEGIES.map(strategy => {
-            const active = isActive(strategy.filters, filters);
+            const active = strategy.id === activeStrategyId;
             const count = counts.get(strategy.id) ?? 0;
             const c = COLOR[strategy.color];
+
+            const handleClick = () => {
+              if (active) {
+                setActiveStrategyId(null);
+                onChange({});
+              } else {
+                setActiveStrategyId(strategy.id);
+                onChange({ ...strategy.filters });
+              }
+            };
 
             return (
               <div
                 key={strategy.id}
-                onClick={() => onChange(active ? {} : { ...strategy.filters })}
+                onClick={handleClick}
                 className={`group flex-shrink-0 w-48 p-3.5 bg-white rounded-xl border shadow-sm
                             hover:shadow-md cursor-pointer transition-all
                             ${active ? c.activeCard : 'border-gray-100 hover:border-gray-200'}`}
@@ -216,7 +236,7 @@ export default function StrategyCards({ allStocks, filters, onChange }: Strategy
                 </div>
 
                 {/* Description */}
-                <p className="text-[11px] text-gray-500 leading-relaxed mb-2.5 line-clamp-2">
+                <p className="text-[11px] text-gray-500 leading-relaxed mb-2.5">
                   {strategy.description}
                 </p>
 
@@ -241,7 +261,7 @@ export default function StrategyCards({ allStocks, filters, onChange }: Strategy
                   }`}
                   onClick={e => {
                     e.stopPropagation();
-                    onChange(active ? {} : { ...strategy.filters });
+                    handleClick();
                   }}
                 >
                   {active ? '✓ Aktivno — poništi' : 'Primijeni →'}

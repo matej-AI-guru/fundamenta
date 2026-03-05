@@ -22,23 +22,6 @@ function fmt(v: number): string {
 const fmtPct = (v: number) => `${v.toFixed(1)}%`;
 const fmtX = (v: number) => `${v.toFixed(1)}x`;
 
-// Preset filter configurations
-const PRESETS = [
-  {
-    label: 'Buffett podcijenjenost',
-    desc: 'Buffettova metrika > tržišna kap. za >20%',
-    filters: { buffett_undervalue_min: 0.2 } as Partial<FilterValues>,
-  },
-  {
-    label: 'ROCE',
-    desc: 'Povrat na angažirani kapital >15%',
-    filters: { roce_min: 15 } as Partial<FilterValues>,
-  },
-];
-
-function isPresetActive(preset: typeof PRESETS[0], filters: Partial<FilterValues>): boolean {
-  return Object.entries(preset.filters).every(([k, v]) => filters[k as keyof FilterValues] === v);
-}
 
 export default function FilterPanel({ filters, onChange, onReset, activeCount, compact = false }: FilterPanelProps) {
   const [showAdditional, setShowAdditional] = useState(false);
@@ -49,30 +32,6 @@ export default function FilterPanel({ filters, onChange, onReset, activeCount, c
 
   const body = (
     <>
-      {/* Preset buttons */}
-      <div className="px-4 py-4 border-b border-gray-100">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">Gotovi odabiri</p>
-        <div className="flex flex-wrap gap-2">
-          {PRESETS.map((preset) => {
-            const active = isPresetActive(preset, filters);
-            return (
-              <button
-                key={preset.label}
-                onClick={() => onChange(active ? {} : { ...preset.filters })}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
-                  active
-                    ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200'
-                }`}
-                title={preset.desc}
-              >
-                {preset.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
       {/* Primary filters */}
       <div className="px-4 py-5 space-y-7">
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest -mb-2">
