@@ -87,6 +87,33 @@ export type Stock = {
   last_updated: string;
 };
 
+export type StockFinancials = {
+  id: string;
+  ticker: string;
+  year: number;
+  revenue: number | null;
+  ebit: number | null;
+  depreciation: number | null;
+  net_profit: number | null;
+  ebitda: number | null;
+  total_assets: number | null;
+  equity: number | null;
+  current_assets: number | null;
+  current_financial_assets: number | null;
+  cash: number | null;
+  long_term_liabilities: number | null;
+  current_liabilities: number | null;
+  operating_cash_flow: number | null;
+  capex: number | null;
+  free_cash_flow: number | null;
+  net_margin: number | null;
+  roe: number | null;
+  roce: number | null;
+  current_ratio: number | null;
+  eps: number | null;
+  created_at: string;
+};
+
 export type EmailAlert = {
   id: string;
   email: string;

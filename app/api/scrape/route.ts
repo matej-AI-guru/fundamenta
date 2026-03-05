@@ -39,17 +39,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No stocks scraped' }, { status: 500 });
     }
 
+    // Strip internal _yearlyData before upserting to stocks table
+    const stockRows = stocks.map(({ _yearlyData: _ignored, ...rest }) => ({
+      ...rest,
+      last_updated: new Date().toISOString(),
+    }));
+
     // Upsert all stocks (insert or update by ticker PK)
     const { error } = await supabaseAdmin
       .from('stocks')
-      .upsert(
-        stocks.map((s) => ({ ...s, last_updated: new Date().toISOString() })),
-        { onConflict: 'ticker' }
-      );
+      .upsert(stockRows, { onConflict: 'ticker' });
 
     if (error) {
       console.error('Supabase upsert error:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // Upsert historical financials into stock_financials
+    const historicalRows = stocks.flatMap(s => s._yearlyData ?? []);
+    if (historicalRows.length > 0) {
+      const { error: histErr } = await supabaseAdmin
+        .from('stock_financials')
+        .upsert(historicalRows, { onConflict: 'ticker,year' });
+      if (histErr) console.error('stock_financials upsert error:', histErr);
     }
 
     // Remove any tickers from DB that are no longer on the ZSE list

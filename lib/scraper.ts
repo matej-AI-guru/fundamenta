@@ -1,5 +1,31 @@
 import * as cheerio from 'cheerio';
 
+// Historical financial data for one year (stored in stock_financials table)
+export interface FinancialYearData {
+  ticker: string;
+  year: number;
+  revenue: number | null;
+  ebit: number | null;
+  depreciation: number | null;
+  net_profit: number | null;
+  ebitda: number | null;
+  total_assets: number | null;
+  equity: number | null;
+  current_assets: number | null;
+  current_financial_assets: number | null;
+  cash: number | null;
+  long_term_liabilities: number | null;
+  current_liabilities: number | null;
+  operating_cash_flow: number | null;
+  capex: number | null;
+  free_cash_flow: number | null;
+  net_margin: number | null;
+  roe: number | null;
+  roce: number | null;
+  current_ratio: number | null;
+  eps: number | null;
+}
+
 export interface StockData {
   ticker: string;
   name: string;
@@ -46,6 +72,8 @@ export interface StockData {
   ev_ebitda: number | null;
   current_ratio: number | null;
   currency: string;
+  // Historical data for stock_financials table (not stored in stocks table)
+  _yearlyData?: FinancialYearData[];
 }
 
 const BASE_URL = 'https://www.mojedionice.com';
@@ -79,7 +107,7 @@ const SIFSIM_OVERRIDES: Record<string, string> = {
 };
 
 // KOEI → KOEI-R-A, KODT2 → KODT-P-A, ZITO → ZTOS-R-B
-function sifSimFromTicker(ticker: string): string {
+export function sifSimFromTicker(ticker: string): string {
   if (SIFSIM_OVERRIDES[ticker]) return SIFSIM_OVERRIDES[ticker];
   if (ticker.endsWith('2')) return `${ticker.slice(0, -1)}-P-A`;
   return `${ticker}-R-A`;
@@ -211,10 +239,12 @@ async function fetchWithRetry(url: string): Promise<Response | null> {
 //
 // DO NOT use the tooltip — Bilanca tooltips contain absolute EUR while the cell
 // shows thousands, causing 1000× double-scaling.
+// yearOffset: 0 = most recent (current year), 1 = previous year (comparative column)
 function extractByAop(
   $: ReturnType<typeof cheerio.load>,
   aop: number,
-  scale = 1
+  scale = 1,
+  yearOffset = 0
 ): number | null {
   // Try the exact number and zero-padded variants (e.g. 1 → "1", "01", "001")
   const aopStrs = [
@@ -230,8 +260,8 @@ function extractByAop(
     const cells = $(row).find('td');
     if (cells.length < 3) return;
 
-    // Priority 1: cells[1] contains the AOP code → RDG/CF format (value at col 3)
-    // Priority 2: cells[0] contains the AOP code → Bilanca format (value at col 2)
+    // Priority 1: cells[1] contains the AOP code → RDG/CF format (value at col 3+yearOffset)
+    // Priority 2: cells[0] contains the AOP code → Bilanca format (value at col 2+yearOffset)
     let aopColIdx = -1;
     if (aopStrs.includes($(cells[1]).text().trim())) {
       aopColIdx = 1;
@@ -240,7 +270,7 @@ function extractByAop(
     }
     if (aopColIdx === -1) return;
 
-    const valueColIdx = aopColIdx + 2; // always 2 columns after the AOP cell
+    const valueColIdx = aopColIdx + 2 + yearOffset; // +2 current, +3 previous year
     if (valueColIdx >= cells.length) return;
 
     // Use cell text directly — no tooltip (tooltip has wrong scale for Bilanca)
@@ -250,6 +280,17 @@ function extractByAop(
   });
 
   return result;
+}
+
+// Detect fiscal years from HTML header cells (e.g. "31.12.2024." → 2024).
+// Returns [currentYear, previousYear]. Falls back to calendar year heuristics.
+function detectYearsFromHtml(html: string): [number, number] {
+  const matches = [...html.matchAll(/\b(20\d{2})\b/g)].map(m => parseInt(m[1]));
+  const years = [...new Set(matches)].sort((a, b) => b - a); // descending
+  if (years.length >= 2) return [years[0], years[1]];
+  if (years.length === 1) return [years[0], years[0] - 1];
+  const now = new Date().getFullYear();
+  return [now - 1, now - 2]; // fallback: assume last two full fiscal years
 }
 
 // Fetch Sažetak page — price, market_cap, shares, dividend, dividend_yield
@@ -563,6 +604,179 @@ async function fetchNovcanTok(sifSim: string): Promise<{
   return { operating_cash_flow, capex };
 }
 
+// Fetch Bilanca for two years — returns { current, previous, years }
+async function fetchBilancaAllYears(sifSim: string, isBank: boolean): Promise<{
+  current: BilancaResult;
+  previous: BilancaResult;
+  years: [number, number];
+}> {
+  const empty: BilancaResult = {
+    total_assets: null, equity: null, current_assets: null,
+    current_financial_assets: null, cash: null,
+    long_term_liabilities: null, current_liabilities: null,
+  };
+  const url = `${BASE_URL}/fund/IzvFinIzv.aspx?sifSim=${sifSim}&idFinIzv=1`;
+  const res = await fetchWithRetry(url);
+  if (!res) return { current: empty, previous: empty, years: detectYearsFromHtml('') };
+
+  const html = await res.text();
+  const $ = cheerio.load(html);
+  const years = detectYearsFromHtml(html);
+  const scale = isBank ? 1000 : (html.toLowerCase().includes('tisu') ? 1000 : 1);
+
+  const byAop = (aop: number, yo = 0) => extractByAop($, aop, scale, yo);
+  const byLabel = (...labels: string[]) => extractByLabel($, labels, scale);
+
+  if (isBank) {
+    const currentB: BilancaResult = {
+      ...empty,
+      cash:         byAop(1) ?? byLabel('gotovina i gotovinski ekvivalenti', 'gotovina i novčanica', 'gotovina'),
+      total_assets: byAop(3) ?? byLabel('ukupno aktiva', 'ukupna imovina', 'ukupna aktiva', 'imovina'),
+      equity:       byAop(5) ?? byLabel('kapital i rezerve', 'dionički kapital i rezerve', 'kapital'),
+    };
+    const previousB: BilancaResult = {
+      ...empty,
+      cash:         byAop(1, 1),
+      total_assets: byAop(3, 1),
+      equity:       byAop(5, 1),
+    };
+    return { current: currentB, previous: previousB, years };
+  }
+
+  const current: BilancaResult = {
+    current_assets:           byAop(6)  ?? byLabel('kratkotrajna imovina'),
+    current_financial_assets: byAop(9)  ?? byLabel('kratkotrajna financijska imovina'),
+    cash:                     byAop(10) ?? byLabel('novac na računima i u blagajni', 'gotovina'),
+    total_assets:             byAop(13) ?? byLabel('ukupno aktiva', 'ukupna aktiva'),
+    equity:                   byAop(50) ?? byLabel('kapital i rezerve'),
+    long_term_liabilities:    byAop(52) ?? byLabel('dugoročne obveze'),
+    current_liabilities:      byAop(53) ?? byLabel('kratkoročne obveze'),
+  };
+  const previous: BilancaResult = {
+    current_assets:           byAop(6,  1),
+    current_financial_assets: byAop(9,  1),
+    cash:                     byAop(10, 1),
+    total_assets:             byAop(13, 1),
+    equity:                   byAop(50, 1),
+    long_term_liabilities:    byAop(52, 1),
+    current_liabilities:      byAop(53, 1),
+  };
+  return { current, previous, years };
+}
+
+// Fetch RDG for two years
+async function fetchRDGAllYears(sifSim: string, isBank: boolean): Promise<{
+  current: { revenue: number | null; ebit: number | null; depreciation: number | null; net_profit: number | null };
+  previous: { revenue: number | null; ebit: number | null; depreciation: number | null; net_profit: number | null };
+  years: [number, number];
+}> {
+  const empty = { revenue: null, ebit: null, depreciation: null, net_profit: null };
+  const url = isBank
+    ? `${BASE_URL}/fund/IzvFinIzv.aspx?sifSim=${sifSim}&idFinIzv=2`
+    : `${BASE_URL}/fund/IzvFinIzv.aspx?sifSim=${sifSim}&idFinIzv=2&nacPrik=24&idAOPver=16`;
+  const res = await fetchWithRetry(url);
+  if (!res) return { current: empty, previous: empty, years: detectYearsFromHtml('') };
+
+  const html = await res.text();
+  const $ = cheerio.load(html);
+  const years = detectYearsFromHtml(html);
+  const scale = isBank ? (html.toLowerCase().includes('tisu') ? 1000 : 1) : 1;
+
+  if (isBank) {
+    const byLabel = (...labels: string[]) => extractByLabel($, labels, scale);
+    const net_profit = byLabel(
+      'dobit/gubitak razdoblja', 'dobit (gubitak) razdoblja',
+      'dobit/gubitak tekuće godine', 'dobit tekuće godine',
+      'neto dobit tekuće godine', 'dobit poslovne godine',
+    );
+    const ebit = byLabel(
+      'dobit/gubitak prije oporezivanja', 'dobit (gubitak) prije oporezivanja', 'dobit prije oporezivanja',
+    );
+    const revenue = byLabel(
+      'ukupni prihodi', 'ukupno prihodi', 'prihodi iz redovnih aktivnosti',
+      'neto prihodi od redovnih aktivnosti', 'kamatni prihodi i slični prihodi', 'kamatni prihodi',
+    );
+    const depreciation = byLabel(
+      'amortizacija', 'amortizacija i vrijednosna usklađenja',
+      'troškovi amortizacije', 'amortizacija dugotrajne imovine',
+    );
+    // Previous year for banks not extracted via label-based (complex layout); skip for now
+    return { current: { revenue, ebit, depreciation, net_profit }, previous: empty, years };
+  }
+
+  const revenue      = extractByAop($, 1,  1, 0);
+  const depreciation = extractByAop($, 17, 1, 0);
+  const net_profit   = extractByAop($, 59, 1, 0);
+  const revenuePrev  = extractByAop($, 1,  1, 1);
+  const deprPrev     = extractByAop($, 17, 1, 1);
+  const profitPrev   = extractByAop($, 59, 1, 1);
+
+  // EBIT: search by label (cells[2] in nacPrik=24 format)
+  let ebit: number | null = null;
+  let ebitPrev: number | null = null;
+  $('tr').each((_i, row) => {
+    const cells = $(row).find('td');
+    if (cells.length < 4) return;
+    const label = $(cells[2]).text().trim().toLowerCase();
+    if (label.includes('operativna dobit') || label === 'ebit') {
+      if (ebit === null) {
+        const rawVal = $(cells[3]).text().trim().split(/\s/)[0];
+        const num = parseCroatianNum(rawVal);
+        ebit = num;
+      }
+      if (ebitPrev === null && cells.length >= 5) {
+        const rawVal = $(cells[4]).text().trim().split(/\s/)[0];
+        const num = parseCroatianNum(rawVal);
+        ebitPrev = num;
+      }
+      return false;
+    }
+  });
+
+  // Fallback EBIT = revenue - expenses (AOP 7)
+  if (ebit === null && revenue !== null) {
+    const expenses = extractByAop($, 7, 1, 0);
+    if (expenses !== null) ebit = revenue - expenses;
+  }
+  if (ebitPrev === null && revenuePrev !== null) {
+    const expensesPrev = extractByAop($, 7, 1, 1);
+    if (expensesPrev !== null) ebitPrev = revenuePrev - expensesPrev;
+  }
+
+  return {
+    current:  { revenue, ebit, depreciation, net_profit },
+    previous: { revenue: revenuePrev, ebit: ebitPrev, depreciation: deprPrev, net_profit: profitPrev },
+    years,
+  };
+}
+
+// Fetch Novčani tok for two years
+async function fetchNovcanTokAllYears(sifSim: string): Promise<{
+  current: { operating_cash_flow: number | null; capex: number | null };
+  previous: { operating_cash_flow: number | null; capex: number | null };
+  years: [number, number];
+}> {
+  const url = `${BASE_URL}/fund/IzvFinIzv.aspx?sifSim=${sifSim}&idFinIzv=3&nacPrik=24&idAOPver=16`;
+  const res = await fetchWithRetry(url);
+  const empty = { operating_cash_flow: null, capex: null };
+  if (!res) return { current: empty, previous: empty, years: detectYearsFromHtml('') };
+
+  const html = await res.text();
+  const $ = cheerio.load(html);
+  const years = detectYearsFromHtml(html);
+
+  const ocf      = extractByAop($, 20, 1, 0);
+  const capexRaw = extractByAop($, 28, 1, 0);
+  const ocfPrev      = extractByAop($, 20, 1, 1);
+  const capexRawPrev = extractByAop($, 28, 1, 1);
+
+  return {
+    current:  { operating_cash_flow: ocf,     capex: capexRaw     !== null ? Math.abs(capexRaw)     : null },
+    previous: { operating_cash_flow: ocfPrev, capex: capexRawPrev !== null ? Math.abs(capexRawPrev) : null },
+    years,
+  };
+}
+
 export async function fetchAllTickers(): Promise<string[]> {
   return ZSE_TICKERS;
 }
@@ -577,18 +791,21 @@ export async function fetchStockData(ticker: string): Promise<StockData | null> 
     // Fetch 4 pages sequentially with 400ms gap — parallel bursts trigger rate-limiting
     const sazetak   = await fetchSazetak(sifSim);   await delay(400);
     const isFinancial = BANK_TICKERS.has(ticker) || INSURANCE_TICKERS.has(ticker);
-    const bilanca   = await (isFinancial ? fetchBilancaBank : fetchBilanca)(sifSim); await delay(400);
-    const rdg       = await (isFinancial ? fetchRDGBank : fetchRDG)(sifSim); await delay(400);
-    const novcanTok = await fetchNovcanTok(sifSim);
+    const bilancaAll   = await fetchBilancaAllYears(sifSim, isFinancial); await delay(400);
+    const rdgAll       = await fetchRDGAllYears(sifSim, isFinancial); await delay(400);
+    const novcanTokAll = await fetchNovcanTokAllYears(sifSim);
 
     const {
       name, price, market_cap, shares_outstanding, dividend, dividend_yield,
     } = sazetak;
+    const bilanca = bilancaAll.current;
     const {
       total_assets, equity, current_assets, current_financial_assets,
       cash, long_term_liabilities, current_liabilities,
     } = bilanca;
+    const rdg = rdgAll.current;
     const { revenue, ebit, depreciation, net_profit } = rdg;
+    const novcanTok = novcanTokAll.current;
     const { operating_cash_flow, capex } = novcanTok;
 
     // --- Calculated metrics ---
@@ -705,6 +922,47 @@ export async function fetchStockData(ticker: string): Promise<StockData | null> 
       return null;
     }
 
+    // Build yearly historical rows for stock_financials table
+    const buildYearRow = (
+      yr: number,
+      b: BilancaResult,
+      r: { revenue: number | null; ebit: number | null; depreciation: number | null; net_profit: number | null },
+      cf: { operating_cash_flow: number | null; capex: number | null },
+      sh: number | null
+    ): FinancialYearData => {
+      const _ebitda = r.ebit !== null ? r.ebit + (r.depreciation ?? 0) : null;
+      const _fcf    = cf.operating_cash_flow !== null && cf.capex !== null ? cf.operating_cash_flow - cf.capex : null;
+      const _cr     = b.current_assets !== null && b.current_liabilities ? b.current_assets / b.current_liabilities : null;
+      const _nm     = r.revenue && r.net_profit !== null && r.revenue !== 0 ? (r.net_profit / r.revenue) * 100 : null;
+      const _roe    = b.equity && r.net_profit !== null && b.equity !== 0 ? (r.net_profit / b.equity) * 100 : null;
+      const _roce   = r.ebit !== null && b.total_assets !== null && b.current_liabilities !== null && (b.total_assets - b.current_liabilities) !== 0
+        ? (r.ebit / (b.total_assets - b.current_liabilities)) * 100 : null;
+      const _eps    = r.net_profit !== null && sh && sh !== 0 ? r.net_profit / sh : null;
+      return {
+        ticker, year: yr,
+        revenue: r.revenue, ebit: r.ebit, depreciation: r.depreciation, net_profit: r.net_profit,
+        ebitda: _ebitda,
+        total_assets: b.total_assets, equity: b.equity, current_assets: b.current_assets,
+        current_financial_assets: b.current_financial_assets, cash: b.cash,
+        long_term_liabilities: b.long_term_liabilities, current_liabilities: b.current_liabilities,
+        operating_cash_flow: cf.operating_cash_flow, capex: cf.capex, free_cash_flow: _fcf,
+        net_margin: _nm, roe: _roe, roce: _roce, current_ratio: _cr, eps: _eps,
+      };
+    };
+
+    const [currentYear, prevYear] = bilancaAll.years;
+    const _yearlyData: FinancialYearData[] = [
+      buildYearRow(currentYear, bilancaAll.current, rdgAll.current, novcanTokAll.current, shares_outstanding),
+    ];
+    // Add previous year only if we have at least some data for it
+    const prevBilanca = bilancaAll.previous;
+    const prevRdg     = rdgAll.previous;
+    const prevCf      = novcanTokAll.previous;
+    const hasPrevData = [prevBilanca.total_assets, prevRdg.revenue, prevCf.operating_cash_flow].some(v => v !== null);
+    if (hasPrevData) {
+      _yearlyData.push(buildYearRow(prevYear, prevBilanca, prevRdg, prevCf, shares_outstanding));
+    }
+
     return {
       ticker,
       name,
@@ -745,6 +1003,7 @@ export async function fetchStockData(ticker: string): Promise<StockData | null> 
       ev_ebitda:        ev_ebitda_safe,
       current_ratio:    current_ratio_safe,
       currency: 'EUR',
+      _yearlyData,
     };
   } catch (err) {
     console.error(`Error fetching ${ticker} (${sifSim}):`, err);
