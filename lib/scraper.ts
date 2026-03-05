@@ -58,7 +58,7 @@ export const ZSE_TICKERS = [
   'DDJH', 'DLKV',
   'ERNT',
   'GRNL',
-  'HEFA', 'HPB', 'HPDG', 'HT',
+  'HPB', 'HPDG', 'HT',
   'IG', 'IGH', 'IKBA', 'INA', 'INGR',
   'JDGT', 'JDOS', 'JDPL',
   'KODT', 'KODT2', 'KOEI', 'KRAS',
@@ -658,8 +658,9 @@ export async function fetchStockData(ticker: string): Promise<StockData | null> 
         ? revenue / shares_outstanding
         : null;
 
+    // EV/EBITDA: not meaningful for banks/insurance (cash = customer deposits → EV goes negative)
     const ev_ebitda =
-      market_cap !== null && ebitda && ebitda !== 0
+      !isFinancial && market_cap !== null && ebitda && ebitda !== 0
         ? (market_cap + (long_term_liabilities ?? 0) - (cash ?? 0)) / ebitda
         : null;
 

@@ -126,7 +126,7 @@ const TABS: { id: TabId; label: string; columns: string[] }[] = [
   {
     id: 'pregled',
     label: 'Pregled',
-    columns: ['ticker', 'name', 'price', 'pe_ratio', 'ev_ebitda', 'dividend_yield', 'dividend'],
+    columns: ['ticker', 'score', 'name', 'price', 'market_cap', 'pe_ratio', 'ev_ebitda', 'dividend_yield'],
   },
   {
     id: 'vrednovanje',
@@ -181,7 +181,7 @@ export default function StockTable({ stocks, isLoading }: StockTableProps) {
           target="_blank"
           rel="noopener noreferrer"
           onClick={(e) => e.stopPropagation()}
-          className="inline-block bg-gray-900 text-white text-[11px] font-mono font-medium px-1.5 py-0.5 rounded tracking-wide hover:bg-gray-700 transition-colors"
+          className="inline-block text-[11px] font-mono font-medium px-1.5 py-0.5 rounded-md border border-gray-200 text-gray-700 tracking-wide hover:border-blue-300 hover:text-blue-600 transition-colors"
         >
           {s.ticker}
         </a>
@@ -337,25 +337,28 @@ export default function StockTable({ stocks, isLoading }: StockTableProps) {
                 <th
                   key={col.key}
                   onClick={() => handleSort(col.key)}
-                  className={`px-2 py-2 sm:px-4 sm:py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide
-                              cursor-pointer hover:text-gray-700 select-none whitespace-nowrap transition-colors bg-white
+                  className={`px-2 py-2 sm:px-4 sm:py-3 text-xs font-semibold uppercase tracking-wide
+                              cursor-pointer select-none whitespace-nowrap transition-colors bg-white
                               ${col.align === 'right' ? 'text-right' : 'text-left'}
-                              ${col.key === 'ticker' ? 'sticky left-0 z-20 border-r border-gray-100' : ''}`}
+                              ${col.key === 'ticker' ? 'sticky left-0 z-20 border-r border-gray-100' : ''}
+                              ${sortKey === col.key ? 'text-gray-800' : 'text-gray-400 hover:text-gray-600'}`}
                 >
                   <span className="inline-flex items-center gap-1">
                     {col.label}
                     {col.tip && (
-                      <span title={col.tip} className="text-gray-300 hover:text-gray-400 cursor-default select-none text-[10px]">ⓘ</span>
+                      <span title={col.tip} className="opacity-40 hover:opacity-70 cursor-default select-none text-[10px]">ⓘ</span>
                     )}
-                    {sortKey === col.key && (
-                      <svg
-                        className={`w-3 h-3 ${sortDir === 'asc' ? 'rotate-180' : ''} transition-transform`}
-                        fill="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path d="M7 10l5 5 5-5z" />
-                      </svg>
-                    )}
+                    <svg
+                      className={`w-3 h-3 flex-shrink-0 transition-all ${
+                        sortKey === col.key
+                          ? sortDir === 'asc' ? 'rotate-180' : ''
+                          : 'opacity-20'
+                      }`}
+                      fill="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path d="M7 10l5 5 5-5z" />
+                    </svg>
                   </span>
                 </th>
               ))}
