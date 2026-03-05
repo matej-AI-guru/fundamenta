@@ -284,9 +284,7 @@ export default function StockTable({ stocks, isLoading }: StockTableProps) {
     () => [
       { key: 'ticker', label: 'Ticker', format: (s) => (
         <a
-          href={tickerToZseUrl(s.ticker)}
-          target="_blank"
-          rel="noopener noreferrer"
+          href={`/dionica/${s.ticker}`}
           onClick={(e) => e.stopPropagation()}
           className="inline-block text-[11px] font-mono font-medium px-1.5 py-0.5 rounded-md border border-gray-200 text-gray-700 tracking-wide hover:border-blue-300 hover:text-blue-600 transition-colors"
         >

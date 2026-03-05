@@ -225,7 +225,7 @@ export default function HomeClient({ initialStocks, initialLastUpdated }: Props)
                 Screener dionica — Zagrebačka burza
               </h1>
               <p className="text-xs text-gray-500 max-w-xl">
-                Jedini napredni fundamentalni screener za ZSE. Filtriraj po P/E, ROCE, EV/EBITDA i još 10+ pokazatelja. Besplatno, bez registracije.
+                Jedini napredni fundamentalni screener za ZSE. Filtriraj po P/E, ROCE, EV/EBITDA i još 10+ pokazatelja.
               </p>
             </div>
             <div className="flex items-center gap-6 text-right flex-shrink-0 ml-8">

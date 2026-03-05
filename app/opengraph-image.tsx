@@ -75,7 +75,7 @@ export default function OGImage() {
 
         {/* Subtitle — single text node, no wrapping */}
         <div style={{ fontSize: '22px', color: '#94a3b8', maxWidth: '680px', lineHeight: 1.4, marginBottom: '48px' }}>
-          Filtriraj po P/E, ROCE, EV/EBITDA i 10+ fundamentalnih pokazatelja. Besplatno, bez registracije.
+          Filtriraj po P/E, ROCE, EV/EBITDA i 10+ fundamentalnih pokazatelja.
         </div>
 
         {/* Feature pills */}

@@ -219,7 +219,7 @@ export default function StrategyCards({ allStocks, filters, onChange }: Strategy
                 key={strategy.id}
                 onClick={handleClick}
                 className={`group flex-shrink-0 w-48 p-3.5 bg-white rounded-xl border shadow-sm
-                            hover:shadow-md cursor-pointer transition-all
+                            hover:shadow-md cursor-pointer transition-all flex flex-col
                             ${active ? c.activeCard : 'border-gray-100 hover:border-gray-200'}`}
               >
                 {/* Header: icon + name + count */}
@@ -254,7 +254,7 @@ export default function StrategyCards({ allStocks, filters, onChange }: Strategy
 
                 {/* CTA */}
                 <button
-                  className={`w-full text-[11px] font-semibold border rounded-lg py-1.5 transition-all ${
+                  className={`mt-auto w-full text-[11px] font-semibold border rounded-lg py-1.5 transition-all ${
                     active
                       ? 'bg-gray-900 text-white border-gray-900'
                       : `${c.btn}`

@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),
   title: "Fundamenta — Screener dionica Zagrebačke burze",
   description:
-    "Jedini napredni fundamentalni screener za ZSE. Filtriraj sve dionice po P/E, ROCE, EV/EBITDA i 10+ pokazatelja. Besplatno, bez registracije.",
+    "Jedini napredni fundamentalni screener za ZSE. Filtriraj sve dionice po P/E, ROCE, EV/EBITDA i 10+ pokazatelja.",
   alternates: {
     canonical: "/",
   },
@@ -25,7 +25,7 @@ export const metadata: Metadata = {
     locale: "hr_HR",
     title: "Fundamenta — Screener dionica Zagrebačke burze",
     description:
-      "Filtriraj dionice ZSE po P/E, ROCE, EV/EBITDA i 10+ fundamentalnih pokazatelja. Besplatno, bez registracije.",
+      "Filtriraj dionice ZSE po P/E, ROCE, EV/EBITDA i 10+ fundamentalnih pokazatelja.",
   },
   twitter: {
     card: "summary_large_image",
