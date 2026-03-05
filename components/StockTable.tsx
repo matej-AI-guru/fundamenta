@@ -79,7 +79,7 @@ const TABS: { id: TabId; label: string; columns: string[] }[] = [
   {
     id: 'profitabilnost',
     label: 'Profitabilnost',
-    columns: ['ticker', 'net_margin', 'roe', 'roce'],
+    columns: ['ticker', 'revenue', 'ebit', 'ebitda', 'net_margin', 'roe', 'roce', 'eps', 'free_cash_flow'],
   },
   {
     id: 'bilanca',
