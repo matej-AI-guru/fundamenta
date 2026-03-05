@@ -132,13 +132,19 @@ export default function HomeClient({ initialStocks, initialLastUpdated }: Props)
     : stocks;
 
   return (
-    <div className="h-screen flex flex-col bg-[#F5F5F7] overflow-hidden">
+    <div className="h-screen flex flex-col bg-slate-100 overflow-hidden">
       {/* Navbar */}
       <nav className="flex-shrink-0 z-50 bg-white/80 backdrop-blur-xl border-b border-gray-200/60">
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 h-12 sm:h-14 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
+            {/* Logo mark */}
+            <div className="w-8 h-8 bg-blue-700 rounded-lg flex items-center justify-center flex-shrink-0">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <polyline points="2,12 5,7 9,9 14,3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
             <span className="text-xl font-bold tracking-tight text-gray-900">Fundamenta</span>
-            <span className="text-xs text-gray-400 font-medium bg-gray-100 px-2 py-0.5 rounded-full">ZSE</span>
+            <span className="hidden sm:inline text-xs text-gray-400 font-medium bg-gray-100 px-2 py-0.5 rounded-full">ZSE</span>
           </div>
 
           <div className="flex items-center gap-1 sm:gap-3">
@@ -211,14 +217,30 @@ export default function HomeClient({ initialStocks, initialLastUpdated }: Props)
       {/* Main — fills remaining viewport height */}
       <div className="flex-1 overflow-hidden flex flex-col">
         <div className="h-full max-w-[1400px] mx-auto w-full px-4 sm:px-6 flex flex-col">
-          {/* Heading — desktop only */}
-          <div className="hidden lg:block py-3 flex-shrink-0">
-            <h1 className="text-2xl font-bold text-gray-900 tracking-tight mb-1">
-              Filtriranje dionica
-            </h1>
-            <p className="text-xs text-gray-500">
-              Pronađi dionice na ZSE prema financijskim pokazateljima.
-            </p>
+          {/* Hero — desktop only */}
+          <div className="hidden lg:flex items-end justify-between py-4 flex-shrink-0">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 tracking-tight mb-1">
+                Screener dionica — Zagrebačka burza
+              </h1>
+              <p className="text-xs text-gray-500 max-w-xl">
+                Jedini napredni fundamentalni screener za ZSE. Filtriraj po P/E, ROCE, EV/EBITDA i još 10+ pokazatelja. Besplatno, bez registracije.
+              </p>
+            </div>
+            <div className="flex items-center gap-6 text-right flex-shrink-0 ml-8">
+              <div>
+                <p className="text-xl font-bold text-gray-900 tabular-nums">{stocks.length}</p>
+                <p className="text-[11px] text-gray-400">dionica</p>
+              </div>
+              <div>
+                <p className="text-xl font-bold text-gray-900">12+</p>
+                <p className="text-[11px] text-gray-400">pokazatelja</p>
+              </div>
+              <div>
+                <p className="text-xl font-bold text-gray-900">ZSE</p>
+                <p className="text-[11px] text-gray-400">burza</p>
+              </div>
+            </div>
           </div>
 
           {/* Content row — fills remaining height */}

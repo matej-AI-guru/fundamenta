@@ -570,7 +570,7 @@ export default function StockTable({ stocks, isLoading }: StockTableProps) {
                     <span className="inline-flex items-center gap-1">
                       {col.label}
                       {col.tip && (
-                        <span title={col.tip} className="opacity-40 hover:opacity-70 cursor-default select-none text-[10px]">ⓘ</span>
+                        <span title={col.tip} className="text-blue-300 hover:text-blue-500 cursor-default select-none text-xs transition-colors">ⓘ</span>
                       )}
                       <svg
                         className={`w-3 h-3 flex-shrink-0 transition-all ${

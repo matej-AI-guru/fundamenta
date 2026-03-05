@@ -51,7 +51,7 @@ export default function FilterPanel({ filters, onChange, onReset, activeCount, c
     <>
       {/* Preset buttons */}
       <div className="px-4 py-4 border-b border-gray-100">
-        <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-3">Gotovi odabiri</p>
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">Gotovi odabiri</p>
         <div className="flex flex-wrap gap-2">
           {PRESETS.map((preset) => {
             const active = isPresetActive(preset, filters);
@@ -75,7 +75,7 @@ export default function FilterPanel({ filters, onChange, onReset, activeCount, c
 
       {/* Primary filters */}
       <div className="px-4 py-5 space-y-7">
-        <p className="text-xs font-medium text-gray-400 uppercase tracking-wide -mb-2">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest -mb-2">
           Glavni pokazatelji
         </p>
 

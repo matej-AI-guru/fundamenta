@@ -9,8 +9,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Fundamenta — ZSE Stock Screener",
-  description: "Filtriraj dionice na Zagrebačkoj burzi prema financijskim pokazateljima.",
+  title: "Fundamenta — Screener dionica Zagrebačke burze",
+  description: "Jedini napredni fundamentalni screener za ZSE. Filtriraj sve dionice po P/E, ROCE, EV/EBITDA i 10+ pokazatelja. Besplatno, bez registracije.",
 };
 
 export default function RootLayout({

@@ -88,10 +88,10 @@ export default function RangeSlider({
     <div className="group">
       <div className="flex items-center justify-between mb-2">
         <div>
-          <span className="text-sm font-medium text-gray-900">{label}</span>
+          <span className="text-sm font-semibold text-gray-900">{label}</span>
           {unit && <span className="text-xs text-gray-400 ml-1">{unit}</span>}
           {description && (
-            <p className="text-xs text-gray-400 mt-0.5">{description}</p>
+            <p className="text-xs text-gray-500 mt-0.5">{description}</p>
           )}
         </div>
         {isActive && (
