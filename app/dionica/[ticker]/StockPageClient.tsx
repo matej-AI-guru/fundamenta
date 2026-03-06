@@ -404,7 +404,7 @@ export default function StockPageClient({
   // Sidebar sections
   const sidebarSections = [
     { id: 'hero',           label: 'Pregled' },
-    ...(priceHistory.length > 0 ? [{ id: 'cijena', label: 'Cijena' }] : []),
+    { id: 'cijena', label: 'Cijena' },
     ...((description || quickInsights.length > 0) ? [{ id: 'opis', label: 'Opis' }] : []),
     { id: 'score',          label: 'Score' },
     { id: 'valuacija',      label: 'Valuacija' },
@@ -547,11 +547,9 @@ export default function StockPageClient({
       </section>
 
       {/* ── 1b. PRICE CHART ── */}
-      {priceHistory.length > 0 && (
-        <section id="cijena" style={{ scrollMarginTop: '80px' }} className="py-4">
-          <PriceChart history={priceHistory} currency={stock.currency} />
-        </section>
-      )}
+      <section id="cijena" style={{ scrollMarginTop: '80px' }} className="py-4">
+        <PriceChart history={priceHistory} currency={stock.currency} />
+      </section>
 
       {/* ── 2. OPIS TVRTKE + BRZA PROCJENA ── */}
       {(description || quickInsights.length > 0) && (
