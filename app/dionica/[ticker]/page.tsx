@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { ZSE_TICKERS, sifSimFromTicker } from '@/lib/scraper';
 import { getSector, getSimilarTickers } from '@/lib/sectors';
+import { getDescription } from '@/lib/descriptions';
 import { computeDetailedScore } from '@/lib/score';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import type { Stock, StockFinancials } from '@/lib/supabase';
@@ -95,6 +96,11 @@ export default async function StockPage({
   const similarStocks = allStocks.filter((s) => similarTickers.includes(s.ticker));
   const zseMedians = computeMedians(allStocks);
   const sifSim = sifSimFromTicker(ticker);
+  const description = getDescription(ticker);
+
+  // Sektorski medijani (min 4 dionice da bi bilo smisleno)
+  const sectorStocks = allStocks.filter((s) => getSector(s.ticker) === sector);
+  const sectorMedians = sectorStocks.length >= 4 ? computeMedians(sectorStocks) : null;
 
   // JSON-LD
   const jsonLd = {
@@ -122,6 +128,8 @@ export default async function StockPage({
         sector={sector}
         similarStocks={similarStocks}
         zseMedians={zseMedians}
+        sectorMedians={sectorMedians}
+        description={description}
         sifSim={sifSim}
       />
     </>

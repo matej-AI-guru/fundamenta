@@ -25,6 +25,8 @@ interface Props {
   sector: string;
   similarStocks: Stock[];
   zseMedians: Record<string, number | null>;
+  sectorMedians: Record<string, number | null> | null;
+  description: string | null;
   sifSim: string;
 }
 
@@ -90,6 +92,53 @@ function scoreGradient(v: number | null): string {
   if (v >= 5)   return 'linear-gradient(90deg, #10b981 0%, #f59e0b 100%)';
   if (v >= 3.5) return 'linear-gradient(90deg, #f59e0b 0%, #f97316 100%)';
   return 'linear-gradient(90deg, #f97316 0%, #ef4444 100%)';
+}
+
+// Auto-generirani sažetak ključnih uvida dionice
+function generateQuickAssessment(
+  stock: Stock,
+  scores: Scores,
+  zseMedians: Record<string, number | null>,
+  financials: StockFinancials[],
+): string[] {
+  const insights: string[] = [];
+
+  // Valuacija
+  if (stock.pb_ratio !== null && stock.pb_ratio < 1)
+    insights.push(`Trguje ispod knjigovodstvene vrijednosti (P/B ${stock.pb_ratio.toFixed(2)}x)`);
+  if (stock.pe_ratio !== null && zseMedians.pe_ratio !== null && stock.pe_ratio < zseMedians.pe_ratio)
+    insights.push(`Valuacijski povoljno — P/E ${stock.pe_ratio.toFixed(1)}x ispod ZSE medijana (${zseMedians.pe_ratio.toFixed(1)}x)`);
+  else if (stock.pe_ratio !== null && zseMedians.pe_ratio !== null && stock.pe_ratio > zseMedians.pe_ratio * 1.5)
+    insights.push(`Relativno skupo — P/E ${stock.pe_ratio.toFixed(1)}x znatno iznad ZSE medijana (${zseMedians.pe_ratio.toFixed(1)}x)`);
+
+  // Profitabilnost — trend neto marže
+  if (financials.length >= 2) {
+    const last = financials[financials.length - 1];
+    const prev = financials[financials.length - 2];
+    if (last.net_margin !== null && prev.net_margin !== null) {
+      const pp = last.net_margin - prev.net_margin;
+      if (Math.abs(pp) >= 2) {
+        const dir = pp > 0 ? 'oporavila' : 'pala';
+        insights.push(`Profitabilnost se ${dir} u ${last.year} (neto marža ${pp > 0 ? '+' : ''}${pp.toFixed(1)}pp na ${last.net_margin.toFixed(1)}%)`);
+      }
+    }
+  }
+
+  // Dividenda
+  if (stock.dividend_yield !== null && stock.dividend_yield >= 4)
+    insights.push(`Visok prinos od dividende: ${stock.dividend_yield.toFixed(2)}%`);
+
+  // Financijsko zdravlje — zaduženost
+  if (stock.current_ratio !== null && stock.current_ratio < 1)
+    insights.push(`Tekuća likvidnost ispod 1.0x (${stock.current_ratio.toFixed(2)}x) — povišeni kratkoročni rizik`);
+
+  // Score summary
+  if (scores.overall !== null) {
+    const lbl = scores.overall >= 7 ? 'nadprosječan' : scores.overall >= 5 ? 'prosječan' : 'ispodprosječan';
+    insights.push(`Kompozitni score: ${scores.overall.toFixed(1)}/10 — ${lbl} u usporedbi s tržištem`);
+  }
+
+  return insights;
 }
 
 // CAGR computation
@@ -187,14 +236,12 @@ function formatCell(v: number | null, format: TableRow['format']): string {
 // Main component
 // ---------------------------------------------------------------------------
 export default function StockPageClient({
-  stock, financials, scores, sector, similarStocks, zseMedians, sifSim,
+  stock, financials, scores, sector, similarStocks, zseMedians, sectorMedians, description, sifSim,
 }: Props) {
   const [chartView, setChartView] = useState<'revenue' | 'profitability' | 'cashflow'>('revenue');
   const [tableTab, setTableTab] = useState<'rdg' | 'bilanca' | 'cf'>('rdg');
 
   const years = financials.map(f => f.year);
-  const latestFin = financials[financials.length - 1] ?? null;
-  const earliestFin = financials[0] ?? null;
   const nYears = years.length > 1 ? years[years.length - 1] - years[0] : 0;
 
   // Chart data
@@ -214,63 +261,39 @@ export default function StockPageClient({
   // Valuation metrics for dashboard
   const valMetrics = [
     {
-      label: 'P/E',
-      value: stock.pe_ratio,
-      unit: 'x',
-      median: zseMedians.pe_ratio,
-      lowerIsBetter: true,
-      sparkValues: financials.map(f => f.eps),
-      sparkLabel: 'EPS trend',
+      label: 'P/E',      dbKey: 'pe_ratio',
+      value: stock.pe_ratio,      unit: 'x',
+      median: zseMedians.pe_ratio, lowerIsBetter: true,
       description: 'Cijena / Zarada po dionici',
     },
     {
-      label: 'P/B',
-      value: stock.pb_ratio,
-      unit: 'x',
-      median: zseMedians.pb_ratio,
-      lowerIsBetter: true,
-      sparkValues: financials.map(f => f.equity),
-      sparkLabel: 'Kapital trend',
+      label: 'P/B',      dbKey: 'pb_ratio',
+      value: stock.pb_ratio,      unit: 'x',
+      median: zseMedians.pb_ratio, lowerIsBetter: true,
       description: 'Cijena / Knjigovodstvena vrijednost',
     },
     {
-      label: 'EV/EBITDA',
-      value: stock.ev_ebitda,
-      unit: 'x',
-      median: zseMedians.ev_ebitda,
-      lowerIsBetter: true,
-      sparkValues: financials.map(f => f.ebitda),
-      sparkLabel: 'EBITDA trend',
+      label: 'EV/EBITDA', dbKey: 'ev_ebitda',
+      value: stock.ev_ebitda,     unit: 'x',
+      median: zseMedians.ev_ebitda, lowerIsBetter: true,
       description: 'Vrijednost poduzeća / EBITDA',
     },
     {
-      label: 'P/S',
-      value: stock.ps_ratio,
-      unit: 'x',
-      median: zseMedians.ps_ratio,
-      lowerIsBetter: true,
-      sparkValues: financials.map(f => f.revenue),
-      sparkLabel: 'Prihod trend',
+      label: 'P/S',      dbKey: 'ps_ratio',
+      value: stock.ps_ratio,      unit: 'x',
+      median: zseMedians.ps_ratio, lowerIsBetter: true,
       description: 'Cijena / Prihod po dionici',
     },
     {
-      label: 'P/FCF',
-      value: stock.pfcf_ratio,
-      unit: 'x',
-      median: zseMedians.pfcf_ratio,
-      lowerIsBetter: true,
-      sparkValues: financials.map(f => f.free_cash_flow),
-      sparkLabel: 'FCF trend',
+      label: 'P/FCF',    dbKey: 'pfcf_ratio',
+      value: stock.pfcf_ratio,    unit: 'x',
+      median: zseMedians.pfcf_ratio, lowerIsBetter: true,
       description: 'Cijena / Slobodni novčani tok po dionici',
     },
     {
-      label: 'Prinos od zarade',
-      value: stock.earnings_yield,
-      unit: '%',
-      median: zseMedians.earnings_yield,
-      lowerIsBetter: false,
-      sparkValues: financials.map(f => f.eps),
-      sparkLabel: 'EPS trend',
+      label: 'Prinos od zarade', dbKey: 'earnings_yield',
+      value: stock.earnings_yield, unit: '%',
+      median: zseMedians.earnings_yield, lowerIsBetter: false,
       description: '1 / P/E × 100% (koliko zaradiš po EUR uloženom)',
     },
   ];
@@ -349,6 +372,26 @@ export default function StockPageClient({
   };
 
   const mojeUrl = `https://www.mojedionice.com/dionica/${sifSim}`;
+
+  // Per-share metrics (computed)
+  const revenuePerShare = stock.revenue !== null && stock.shares_outstanding !== null && stock.shares_outstanding > 0
+    ? stock.revenue / stock.shares_outstanding : null;
+  const fcfPerShare = stock.free_cash_flow !== null && stock.shares_outstanding !== null && stock.shares_outstanding > 0
+    ? stock.free_cash_flow / stock.shares_outstanding : null;
+
+  // Dug / financijsko zdravlje (computed from balance sheet)
+  const totalDebt = (stock.long_term_liabilities ?? 0) + (stock.current_liabilities ?? 0);
+  const netDebt = totalDebt - (stock.cash ?? 0);
+  const debtToEquity = stock.equity !== null && stock.equity > 0 ? totalDebt / stock.equity : null;
+  const netDebtToEbitda = stock.ebitda !== null && stock.ebitda > 0 ? netDebt / stock.ebitda : null;
+
+  // Enterprise Value (aproksimacija: market_cap + dugoročni dug - gotovina)
+  const evApprox = stock.market_cap !== null
+    ? stock.market_cap + (stock.long_term_liabilities ?? 0) - (stock.cash ?? 0)
+    : null;
+
+  // Brza procjena
+  const quickInsights = generateQuickAssessment(stock, scores, zseMedians, financials);
 
   return (
     <div className="min-h-screen bg-gray-50/50">
@@ -475,7 +518,50 @@ export default function StockPageClient({
         </div>
       </section>
 
-      {/* ── 2. VALUACIJSKI DASHBOARD ── */}
+      {/* ── 2. OPIS TVRTKE + BRZA PROCJENA ── */}
+      {(description || quickInsights.length > 0) && (
+        <section className="max-w-[1200px] mx-auto px-4 sm:px-6 py-4">
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+            {description && (
+              <p className="text-sm text-gray-600 leading-relaxed mb-4">{description}</p>
+            )}
+            {quickInsights.length > 0 && (
+              <div className="border-t border-gray-50 pt-4">
+                <p className="text-[11px] text-gray-400 font-medium uppercase tracking-wide mb-2">Ključni uvidi</p>
+                <ul className="space-y-1.5">
+                  {quickInsights.map((insight, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
+                      <span className="mt-1 w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
+                      {insight}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* ── 3. KOMPOZITNI SCORE ── */}
+      <section className="max-w-[1200px] mx-auto px-4 sm:px-6 pb-4">
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-lg font-bold text-gray-900">Kompozitni score</h2>
+            <Link href="/metodologija" className="text-xs text-blue-500 hover:text-blue-600 transition-colors">
+              Kako računamo score? →
+            </Link>
+          </div>
+          <div className="space-y-4">
+            <ScoreBar label="Ukupni score" value={scores.overall} />
+            <div className="h-px bg-gray-50 my-2" />
+            <ScoreBar label="Valuacija"          value={scores.valuation}     tip="P/E, P/B, EV/EBITDA" />
+            <ScoreBar label="Profitabilnost"     value={scores.profitability} tip="ROCE, Neto marža, ROE" />
+            <ScoreBar label="Financijsko zdravlje" value={scores.health}      tip="Tekuća likvidnost, FCF" />
+          </div>
+        </div>
+      </section>
+
+      {/* ── 4. VALUACIJA ── */}
       <section className="max-w-[1200px] mx-auto px-4 sm:px-6 py-6">
         <h2 className="text-lg font-bold text-gray-900 mb-4">Valuacija</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -520,7 +606,15 @@ export default function StockPageClient({
                   );
                 })()}
                 <div className="flex items-center justify-between text-xs mt-2">
-                  <span className="text-gray-400">Medijan ZSE: {medStr}</span>
+                  <span className="text-gray-400">
+                    ZSE: {medStr}
+                    {(() => {
+                      const sv = sectorMedians?.[m.dbKey];
+                      if (sv == null) return null;
+                      const svStr = m.unit === '%' ? fmtPct(sv) : fmtX(sv);
+                      return <> · <span className="text-blue-400">Sektor: {svStr}</span></>;
+                    })()}
+                  </span>
                   {m.value !== null && m.median !== null && (
                     <span className={isFavorable ? 'text-emerald-600 font-medium' : 'text-amber-600 font-medium'}>
                       {isFavorable
@@ -533,9 +627,65 @@ export default function StockPageClient({
             );
           })}
         </div>
+
+        {/* EV raščlamba + per-share metrike */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+          {/* Enterprise Value breakdown */}
+          {evApprox !== null && (
+            <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+              <p className="text-sm text-gray-500 font-medium mb-3">Enterprise Value raščlamba</p>
+              <div className="space-y-1.5 text-xs">
+                {[
+                  { label: 'Tržišna kapitalizacija', value: stock.market_cap, sign: '' },
+                  { label: '+ Dugoročne obveze', value: stock.long_term_liabilities, sign: '+' },
+                  { label: '− Gotovina', value: stock.cash, sign: '−' },
+                ].map(row => (
+                  <div key={row.label} className="flex items-center justify-between text-gray-600">
+                    <span>{row.label}</span>
+                    <span className="tabular-nums font-medium">{row.value !== null ? fmt(row.value) : '—'} {stock.currency}</span>
+                  </div>
+                ))}
+                <div className="border-t border-gray-100 pt-1.5 flex items-center justify-between font-semibold text-gray-900">
+                  <span>= Enterprise Value</span>
+                  <span className="tabular-nums">{fmt(evApprox)} {stock.currency}</span>
+                </div>
+                {stock.ev_ebitda !== null && (
+                  <div className="flex items-center justify-between text-gray-400 text-[11px] pt-0.5">
+                    <span>EV/EBITDA</span>
+                    <span className="tabular-nums font-medium text-gray-700">{fmtX(stock.ev_ebitda)}</span>
+                  </div>
+                )}
+              </div>
+              <p className="text-[10px] text-gray-300 mt-2">* Aproksimacija: ne uključuje kratkoročne financijske obveze</p>
+            </div>
+          )}
+
+          {/* Per-share metrike */}
+          <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+            <p className="text-sm text-gray-500 font-medium mb-3">Po dionici</p>
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { label: 'EPS', value: stock.eps, suffix: stock.currency },
+                { label: 'Knjigovodstvena v.', value: stock.book_value_per_share, suffix: stock.currency },
+                { label: 'Prihod / dionica', value: revenuePerShare, suffix: stock.currency },
+                { label: 'FCF / dionica', value: fcfPerShare, suffix: stock.currency },
+                { label: 'Dividenda', value: stock.dividend, suffix: stock.currency },
+              ].map(item => (
+                <div key={item.label}>
+                  <span className="text-[10px] text-gray-400 block">{item.label}</span>
+                  <span className="text-sm font-medium tabular-nums text-gray-700">
+                    {item.value !== null && item.value !== undefined ? item.value.toFixed(2) : '—'}
+                    <span className="text-[10px] text-gray-400 ml-0.5">{item.suffix}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </section>
 
-      {/* ── 3. PROFITABILNOST ── */}
+      {/* ── 5. PROFITABILNOST ── */}
+
       <section className="max-w-[1200px] mx-auto px-4 sm:px-6 pb-6">
         <h2 className="text-lg font-bold text-gray-900 mb-4">Profitabilnost</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -590,7 +740,14 @@ export default function StockPageClient({
                 )}
                 {m.median !== null && m.value !== null && (
                   <div className="flex items-center justify-between text-xs mt-2 pt-2 border-t border-gray-50">
-                    <span className="text-gray-400">Medijan ZSE: {m.median.toFixed(1)}%</span>
+                    <span className="text-gray-400">
+                      ZSE: {m.median.toFixed(1)}%
+                      {(() => {
+                        const sv = sectorMedians?.[m.key as string];
+                        if (sv == null) return null;
+                        return <span> · <span className="text-blue-400">Sektor: {sv.toFixed(1)}%</span></span>;
+                      })()}
+                    </span>
                     <span className={m.value > m.median ? 'text-emerald-600 font-medium' : 'text-amber-600 font-medium'}>
                       {m.value > m.median ? '✓ Iznad' : '▼ Ispod'}
                     </span>
@@ -780,26 +937,53 @@ export default function StockPageClient({
         </section>
       )}
 
-      {/* ── 6. SCORE + SAŽETAK ── */}
+      {/* ── 8. DUG I FINANCIJSKO ZDRAVLJE ── */}
       <section className="max-w-[1200px] mx-auto px-4 sm:px-6 pb-6">
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-          <div className="flex items-center justify-between mb-5">
-            <h2 className="text-lg font-bold text-gray-900">Kompozitni score</h2>
-            <Link href="/metodologija" className="text-xs text-blue-500 hover:text-blue-600 transition-colors">
-              Kako računamo score? →
-            </Link>
-          </div>
-          <div className="space-y-4">
-            <ScoreBar label="Ukupni score" value={scores.overall} />
-            <div className="h-px bg-gray-50 my-2" />
-            <ScoreBar label="Valuacija"          value={scores.valuation}     tip="P/E, P/B, EV/EBITDA" />
-            <ScoreBar label="Profitabilnost"     value={scores.profitability} tip="ROCE, Neto marža, ROE" />
-            <ScoreBar label="Financijsko zdravlje" value={scores.health}      tip="Tekuća likvidnost, FCF" />
-          </div>
+        <h2 className="text-lg font-bold text-gray-900 mb-4">Dug i financijsko zdravlje</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            {
+              label: 'Neto dug',
+              value: fmt(netDebt),
+              suffix: stock.currency,
+              color: netDebt > 0 ? 'text-red-500' : 'text-emerald-600',
+              tip: 'Ukupni dug − gotovina',
+            },
+            {
+              label: 'Dug / Kapital',
+              value: debtToEquity !== null ? debtToEquity.toFixed(2) : '—',
+              suffix: 'x',
+              color: debtToEquity !== null && debtToEquity > 2 ? 'text-red-500' : debtToEquity !== null && debtToEquity > 1 ? 'text-amber-500' : 'text-emerald-600',
+              tip: 'Ukupne obveze / Kapital',
+            },
+            {
+              label: 'Neto dug / EBITDA',
+              value: netDebtToEbitda !== null ? netDebtToEbitda.toFixed(2) : '—',
+              suffix: 'x',
+              color: netDebtToEbitda !== null && netDebtToEbitda > 3 ? 'text-red-500' : netDebtToEbitda !== null && netDebtToEbitda > 1.5 ? 'text-amber-500' : 'text-emerald-600',
+              tip: 'Neto dug / EBITDA',
+            },
+            {
+              label: 'Tekuća likvidnost',
+              value: stock.current_ratio !== null ? stock.current_ratio.toFixed(2) : '—',
+              suffix: 'x',
+              color: stock.current_ratio !== null && stock.current_ratio < 1 ? 'text-red-500' : stock.current_ratio !== null && stock.current_ratio < 1.5 ? 'text-amber-500' : 'text-emerald-600',
+              tip: 'Kratk. imovina / Kratk. obveze',
+            },
+          ].map(stat => (
+            <div key={stat.label} className="bg-white rounded-xl border border-gray-100 p-3.5 shadow-sm">
+              <p className="text-[11px] text-gray-400 mb-0.5">{stat.label}</p>
+              <p className={`text-lg font-bold tabular-nums ${stat.color}`}>
+                {stat.value}
+                <span className="text-sm font-normal text-gray-400 ml-0.5">{stat.suffix}</span>
+              </p>
+              <p className="text-[10px] text-gray-300 mt-0.5">{stat.tip}</p>
+            </div>
+          ))}
         </div>
       </section>
 
-      {/* ── 7. SLIČNE DIONICE ── */}
+      {/* ── 9. SLIČNE DIONICE ── */}
       {similarStocks.length > 0 && (
         <section className="max-w-[1200px] mx-auto px-4 sm:px-6 pb-10">
           <h2 className="text-lg font-bold text-gray-900 mb-4">Slične dionice</h2>
