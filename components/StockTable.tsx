@@ -12,7 +12,7 @@ interface StockTableProps {
 
 type SortKey = keyof Stock | 'score';
 type SortDir = 'asc' | 'desc';
-type TabId = 'pregled' | 'vrednovanje' | 'profitabilnost' | 'bilanca';
+type TabId = 'pregled' | 'vrednovanje' | 'profitabilnost';
 
 // ---------------------------------------------------------------------------
 // ISIN helpers
@@ -80,11 +80,6 @@ const TABS: { id: TabId; label: string; columns: string[] }[] = [
     id: 'profitabilnost',
     label: 'Profitabilnost',
     columns: ['ticker', 'revenue', 'ebit', 'ebitda', 'net_margin', 'roe', 'roce', 'eps', 'free_cash_flow'],
-  },
-  {
-    id: 'bilanca',
-    label: 'Bilanca i RDG',
-    columns: ['ticker', 'revenue', 'ebitda', 'eps', 'current_assets', 'current_financial_assets', 'current_liabilities', 'total_assets', 'ebit', 'current_ratio'],
   },
 ];
 

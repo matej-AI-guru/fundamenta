@@ -49,16 +49,47 @@ function fmtLarge(v: number): string {
 
 function scoreColor(v: number | null): string {
   if (v === null) return 'text-gray-400';
-  if (v >= 7) return 'text-emerald-600';
-  if (v >= 4) return 'text-amber-500';
+  if (v >= 8)   return 'text-emerald-600';
+  if (v >= 6.5) return 'text-green-600';
+  if (v >= 5)   return 'text-amber-500';
+  if (v >= 3.5) return 'text-orange-500';
   return 'text-red-500';
 }
 
 function scoreBg(v: number | null): string {
   if (v === null) return 'bg-gray-200';
-  if (v >= 7) return 'bg-emerald-500';
-  if (v >= 4) return 'bg-amber-400';
-  return 'bg-red-500';
+  if (v >= 8)   return 'bg-emerald-500';
+  if (v >= 6.5) return 'bg-green-400';
+  if (v >= 5)   return 'bg-amber-400';
+  if (v >= 3.5) return 'bg-orange-400';
+  return 'bg-red-400';
+}
+
+function scoreLabel(v: number | null): string {
+  if (v === null) return '';
+  if (v >= 8)   return 'Odlično';
+  if (v >= 6.5) return 'Dobro';
+  if (v >= 5)   return 'Prosječno';
+  if (v >= 3.5) return 'Ispod prosjeka';
+  return 'Slabo';
+}
+
+function scoreLabelBg(v: number | null): string {
+  if (v === null) return '';
+  if (v >= 8)   return 'bg-emerald-50 text-emerald-700';
+  if (v >= 6.5) return 'bg-green-50 text-green-700';
+  if (v >= 5)   return 'bg-amber-50 text-amber-700';
+  if (v >= 3.5) return 'bg-orange-50 text-orange-700';
+  return 'bg-red-50 text-red-700';
+}
+
+function scoreGradient(v: number | null): string {
+  if (v === null) return '#e5e7eb';
+  if (v >= 8)   return 'linear-gradient(90deg, #10b981 0%, #10b981 100%)';
+  if (v >= 6.5) return 'linear-gradient(90deg, #10b981 0%, #4ade80 100%)';
+  if (v >= 5)   return 'linear-gradient(90deg, #10b981 0%, #f59e0b 100%)';
+  if (v >= 3.5) return 'linear-gradient(90deg, #f59e0b 0%, #f97316 100%)';
+  return 'linear-gradient(90deg, #f97316 0%, #ef4444 100%)';
 }
 
 // CAGR computation
@@ -101,19 +132,31 @@ function Sparkline({ values, color = '#3b82f6' }: { values: (number | null)[]; c
 function ScoreBar({ label, value, tip }: { label: string; value: number | null; tip?: string }) {
   const pct = value !== null ? (value / 10) * 100 : 0;
   return (
-    <div className="space-y-1">
-      <div className="flex items-center justify-between text-sm">
-        <span className="text-gray-600">{label}</span>
-        {tip && <span className="text-[10px] text-gray-400 hidden sm:block">{tip}</span>}
-        <span className={`font-semibold tabular-nums ${scoreColor(value)}`}>
-          {value !== null ? `${value.toFixed(1)}/10` : '—'}
-        </span>
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between text-sm gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-gray-700 font-medium">{label}</span>
+          {tip && <span className="text-[10px] text-gray-400 hidden sm:block">{tip}</span>}
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {value !== null && (
+            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${scoreLabelBg(value)}`}>
+              {scoreLabel(value)}
+            </span>
+          )}
+          <span className={`font-bold tabular-nums ${scoreColor(value)}`}>
+            {value !== null ? `${value.toFixed(1)}/10` : '—'}
+          </span>
+        </div>
       </div>
-      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+      <div className="relative h-2 bg-gray-100 rounded-full overflow-hidden">
         <div
-          className={`h-full rounded-full transition-all ${scoreBg(value)}`}
-          style={{ width: `${pct}%` }}
+          className="absolute inset-y-0 left-0 rounded-full transition-all duration-500"
+          style={{ width: `${pct}%`, background: scoreGradient(value) }}
         />
+        {[25, 50, 75].map(pos => (
+          <div key={pos} className="absolute top-0 bottom-0 w-px bg-white/40" style={{ left: `${pos}%` }} />
+        ))}
       </div>
     </div>
   );
@@ -299,6 +342,12 @@ export default function StockPageClient({
 
   const activeRows = tableTab === 'rdg' ? rdgRows : tableTab === 'bilanca' ? bilancaRows : cfRows;
 
+  const highlightRows: Record<string, string[]> = {
+    rdg:     ['Prihod', 'Neto dobit', 'EPS'],
+    bilanca: ['Ukupna aktiva', 'Kapital'],
+    cf:      ['Operativni CF', 'Slobodni CF (FCF)'],
+  };
+
   const mojeUrl = `https://www.mojedionice.com/dionica/${sifSim}`;
 
   return (
@@ -349,6 +398,9 @@ export default function StockPageClient({
               {stock.price !== null ? stock.price.toFixed(2) : '—'}
               <span className="text-base font-normal text-gray-400 ml-1">{stock.currency}</span>
             </p>
+            <p className="text-xs text-gray-400 mt-1">
+              Zadnje ažurirano: {new Date(stock.last_updated).toLocaleDateString('hr-HR')}
+            </p>
           </div>
         </div>
 
@@ -357,7 +409,58 @@ export default function StockPageClient({
           {[
             { label: 'Tržišna kap.', value: fmt(stock.market_cap), suffix: stock.currency },
             { label: 'Div. prinos',  value: stock.dividend_yield !== null ? stock.dividend_yield.toFixed(2) : '—', suffix: '%' },
-            { label: 'Score',        value: scores.overall !== null ? scores.overall.toFixed(1) : '—', suffix: '/ 10', color: scoreColor(scores.overall) },
+          ].map((stat) => (
+            <div key={stat.label} className="bg-white rounded-xl border border-gray-100 p-3.5 shadow-sm">
+              <p className="text-[11px] text-gray-400 mb-1">{stat.label}</p>
+              <p className="text-lg font-bold tabular-nums text-gray-900">
+                {stat.value}
+                <span className="text-sm font-normal text-gray-400 ml-0.5">{stat.suffix}</span>
+              </p>
+            </div>
+          ))}
+
+          {/* Score card — semi-circle gauge */}
+          <div className="bg-white rounded-xl border border-gray-100 p-3.5 shadow-sm">
+            <p className="text-[11px] text-gray-400 mb-1">Score</p>
+            <div className="flex items-center gap-2">
+              <p className={`text-lg font-bold tabular-nums ${scoreColor(scores.overall)}`}>
+                {scores.overall !== null ? scores.overall.toFixed(1) : '—'}
+                <span className="text-sm font-normal text-gray-400 ml-0.5">/ 10</span>
+              </p>
+            </div>
+            <div className="mt-1">
+              <svg viewBox="0 0 100 50" className="w-full h-7">
+                <path d="M 10 45 A 40 40 0 0 1 90 45" fill="none" stroke="#f3f4f6" strokeWidth="6" strokeLinecap="round" />
+                {scores.overall !== null && (
+                  <>
+                    <path
+                      d="M 10 45 A 40 40 0 0 1 90 45"
+                      fill="none"
+                      stroke={scores.overall >= 7 ? '#10b981' : scores.overall >= 4 ? '#f59e0b' : '#ef4444'}
+                      strokeWidth="6"
+                      strokeLinecap="round"
+                      strokeDasharray={`${(scores.overall / 10) * 126} 126`}
+                    />
+                    {(() => {
+                      const angle = Math.PI - (scores.overall / 10) * Math.PI;
+                      const x = 50 + 40 * Math.cos(angle);
+                      const y = 45 - 40 * Math.sin(angle);
+                      return (
+                        <circle
+                          cx={x} cy={y} r="3"
+                          fill="white"
+                          stroke={scores.overall >= 7 ? '#10b981' : scores.overall >= 4 ? '#f59e0b' : '#ef4444'}
+                          strokeWidth="2"
+                        />
+                      );
+                    })()}
+                  </>
+                )}
+              </svg>
+            </div>
+          </div>
+
+          {[
             { label: 'Buffett podcijenj.', value: stock.buffett_undervalue !== null ? `${(stock.buffett_undervalue * 100) > 0 ? '+' : ''}${(stock.buffett_undervalue * 100).toFixed(1)}` : '—', suffix: '%', color: stock.buffett_undervalue !== null ? (stock.buffett_undervalue > 0 ? 'text-emerald-600' : 'text-red-500') : '' },
             { label: 'Tekuća likv.', value: stock.current_ratio !== null ? stock.current_ratio.toFixed(2) : '—', suffix: 'x' },
           ].map((stat) => (
@@ -388,10 +491,34 @@ export default function StockPageClient({
                   <p className="text-sm text-gray-500 font-medium">{m.label}</p>
                   <span className="text-[10px] text-gray-400 text-right leading-tight max-w-[120px] hidden sm:block">{m.description}</span>
                 </div>
-                <p className="text-2xl font-bold text-gray-900 mb-2 tabular-nums">
+                <p className="text-2xl font-bold text-gray-900 mb-3 tabular-nums">
                   {valStr}
                 </p>
-                <Sparkline values={m.sparkValues} />
+                {/* Horizontal gauge bar */}
+                {m.value !== null && m.median !== null && (() => {
+                  const maxRange = m.median * 2.5;
+                  const position = Math.min(Math.max((m.value / maxRange) * 100, 2), 98);
+                  const medianPosition = (m.median / maxRange) * 100;
+                  return (
+                    <div className="relative h-6 mb-1">
+                      <div className="absolute top-1/2 -translate-y-1/2 w-full h-1.5 bg-gray-100 rounded-full" />
+                      <div className={`absolute top-1/2 -translate-y-1/2 h-1.5 rounded-full w-full ${
+                        m.lowerIsBetter
+                          ? 'bg-gradient-to-r from-emerald-200 via-amber-100 to-red-200'
+                          : 'bg-gradient-to-r from-red-200 via-amber-100 to-emerald-200'
+                      }`} />
+                      <div className="absolute top-0 bottom-0 w-px bg-gray-400" style={{ left: `${medianPosition}%` }}>
+                        <div className="absolute -top-0.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-gray-400 rounded-full" />
+                      </div>
+                      <div
+                        className={`absolute top-1/2 w-3 h-3 rounded-full border-2 border-white shadow-md ${
+                          isFavorable ? 'bg-emerald-500' : 'bg-red-400'
+                        }`}
+                        style={{ left: `${position}%`, transform: 'translate(-50%, -50%)' }}
+                      />
+                    </div>
+                  );
+                })()}
                 <div className="flex items-center justify-between text-xs mt-2">
                   <span className="text-gray-400">Medijan ZSE: {medStr}</span>
                   {m.value !== null && m.median !== null && (
@@ -412,41 +539,66 @@ export default function StockPageClient({
       <section className="max-w-[1200px] mx-auto px-4 sm:px-6 pb-6">
         <h2 className="text-lg font-bold text-gray-900 mb-4">Profitabilnost</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {profMetrics.map((m) => (
-            <div key={m.label} className="bg-white rounded-xl border border-gray-100 p-4 hover:shadow-sm transition-shadow">
-              <div className="flex items-center justify-between mb-1">
-                <p className="text-sm text-gray-500 font-medium">{m.label}</p>
-                <span className="text-[10px] text-gray-400">{m.description}</span>
+          {profMetrics.map((m) => {
+            const histVals = financials.map(f => f[m.key] as number | null);
+            const validHist = histVals.filter((v): v is number => v !== null);
+            const ppChange = validHist.length >= 2
+              ? validHist[validHist.length - 1] - validHist[validHist.length - 2]
+              : null;
+            return (
+              <div key={m.label} className="bg-white rounded-xl border border-gray-100 p-4 hover:shadow-sm transition-shadow">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-sm text-gray-500 font-medium">{m.label}</p>
+                  <span className="text-[10px] text-gray-400">{m.description}</span>
+                </div>
+                {/* Value + pp change badge */}
+                <div className="flex items-baseline gap-2 mb-3">
+                  <p className="text-2xl font-bold text-gray-900 tabular-nums">
+                    {m.value !== null ? `${m.value.toFixed(2)}%` : '—'}
+                  </p>
+                  {ppChange !== null && (
+                    <span className={`inline-flex items-center gap-0.5 text-xs font-medium px-1.5 py-0.5 rounded-md ${
+                      ppChange >= 0 ? 'text-emerald-700 bg-emerald-50' : 'text-red-600 bg-red-50'
+                    }`}>
+                      <svg className={`w-3 h-3 flex-shrink-0 ${ppChange < 0 ? 'rotate-180' : ''}`} viewBox="0 0 12 12" fill="currentColor">
+                        <path d="M6 2L10 7H2L6 2Z" />
+                      </svg>
+                      {ppChange >= 0 ? '+' : ''}{ppChange.toFixed(1)}pp
+                    </span>
+                  )}
+                </div>
+                {/* Sparkline + year list */}
+                {financials.length > 0 && (
+                  <div className="flex items-center gap-3 border-t border-gray-50 pt-3">
+                    <div className="w-16 flex-shrink-0">
+                      <Sparkline values={histVals} color={ppChange !== null && ppChange < 0 ? '#ef4444' : '#10b981'} />
+                    </div>
+                    <div className="flex-1 space-y-1">
+                      {financials.map(f => {
+                        const val = f[m.key] as number | null;
+                        return (
+                          <div key={f.year} className="flex justify-between text-xs">
+                            <span className="text-gray-400">{f.year}</span>
+                            <span className={`font-medium tabular-nums ${val !== null && val < 0 ? 'text-red-500' : 'text-gray-700'}`}>
+                              {val !== null ? `${val.toFixed(1)}%` : '—'}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                {m.median !== null && m.value !== null && (
+                  <div className="flex items-center justify-between text-xs mt-2 pt-2 border-t border-gray-50">
+                    <span className="text-gray-400">Medijan ZSE: {m.median.toFixed(1)}%</span>
+                    <span className={m.value > m.median ? 'text-emerald-600 font-medium' : 'text-amber-600 font-medium'}>
+                      {m.value > m.median ? '✓ Iznad' : '▼ Ispod'}
+                    </span>
+                  </div>
+                )}
               </div>
-              <p className="text-2xl font-bold text-gray-900 mb-3 tabular-nums">
-                {m.value !== null ? `${m.value.toFixed(2)}%` : '—'}
-              </p>
-              {/* Mini table: historical values */}
-              {financials.length > 0 && (
-                <div className="space-y-1 border-t border-gray-50 pt-3">
-                  {financials.map(f => {
-                    const val = f[m.key] as number | null;
-                    return (
-                      <div key={f.year} className="flex justify-between text-xs">
-                        <span className="text-gray-400">{f.year}</span>
-                        <span className={`font-medium tabular-nums ${val !== null && val < 0 ? 'text-red-500' : 'text-gray-700'}`}>
-                          {val !== null ? `${val.toFixed(1)}%` : '—'}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-              {m.median !== null && m.value !== null && (
-                <div className="flex items-center justify-between text-xs mt-2 pt-2 border-t border-gray-50">
-                  <span className="text-gray-400">Medijan ZSE: {m.median.toFixed(1)}%</span>
-                  <span className={m.value > m.median ? 'text-emerald-600 font-medium' : 'text-amber-600 font-medium'}>
-                    {m.value > m.median ? '✓ Iznad' : '▼ Ispod'}
-                  </span>
-                </div>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       </section>
 
@@ -478,18 +630,38 @@ export default function StockPageClient({
               </div>
             </div>
 
+            {/* Custom legend for revenue chart */}
+            {chartView === 'revenue' && (
+              <div className="flex items-center gap-4 mb-3 text-xs text-gray-500">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 rounded-sm bg-blue-100 border border-blue-200 flex-shrink-0" />
+                  <span>Prihod (lijeva os)</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 rounded-sm bg-blue-500 flex-shrink-0" />
+                  <span>EBITDA (desna os)</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2.5 h-0.5 bg-emerald-500 rounded flex-shrink-0" />
+                  <span>Neto dobit (desna os)</span>
+                </div>
+              </div>
+            )}
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 {chartView === 'revenue' ? (
-                  <ComposedChart data={chartData} margin={{ top: 5, right: 5, bottom: 0, left: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="year" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} tickFormatter={fmtLarge} width={60} />
-                    <Tooltip formatter={(v) => typeof v === 'number' ? fmtLarge(v) : String(v ?? '')} />
-                    <Legend iconSize={10} wrapperStyle={{ fontSize: '11px' }} />
-                    <Bar dataKey="prihod"    name="Prihod"     fill="#93c5fd" radius={[3,3,0,0]} />
-                    <Bar dataKey="ebitda"   name="EBITDA"     fill="#3b82f6" radius={[3,3,0,0]} />
-                    <Line dataKey="netoDobit" name="Neto dobit" stroke="#16a34a" strokeWidth={2} dot={{ r: 3 }} />
+                  <ComposedChart data={chartData} margin={{ top: 5, right: 10, bottom: 0, left: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                    <XAxis dataKey="year" tick={{ fontSize: 11 }} axisLine={{ stroke: '#e5e7eb' }} tickLine={false} />
+                    <YAxis yAxisId="left" tick={{ fontSize: 11 }} tickFormatter={fmtLarge} width={55} axisLine={false} tickLine={false} />
+                    <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} tickFormatter={fmtLarge} width={55} axisLine={false} tickLine={false} />
+                    <Tooltip
+                      formatter={(v, name) => [typeof v === 'number' ? fmtLarge(v) : String(v ?? ''), name]}
+                      contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', fontSize: '12px' }}
+                    />
+                    <Bar yAxisId="left"  dataKey="prihod"    name="Prihod"     fill="#dbeafe" stroke="#93c5fd" strokeWidth={1} radius={[3,3,0,0]} barSize={60} />
+                    <Bar yAxisId="right" dataKey="ebitda"    name="EBITDA"     fill="#3b82f6" radius={[3,3,0,0]} barSize={30} />
+                    <Line yAxisId="right" dataKey="netoDobit" name="Neto dobit" stroke="#10b981" strokeWidth={2} dot={{ r: 3, fill: '#10b981', stroke: 'white', strokeWidth: 2 }} />
                   </ComposedChart>
                 ) : chartView === 'profitability' ? (
                   <ComposedChart data={chartData} margin={{ top: 5, right: 5, bottom: 0, left: 0 }}>
@@ -575,20 +747,24 @@ export default function StockPageClient({
                     const cagrVal = nYears > 0
                       ? cagr(row.values[0] ?? null, row.values[row.values.length - 1] ?? null, nYears)
                       : null;
+                    const isHighlight = highlightRows[tableTab]?.includes(row.label) ?? false;
                     return (
-                      <tr key={row.label + idx} className="hover:bg-blue-50/20 transition-colors">
-                        <td className={`text-xs py-2.5 px-5 sticky left-0 bg-white ${row.bold ? 'font-semibold text-gray-900' : 'text-gray-600'}`}>
+                      <tr key={row.label + idx} className={`hover:bg-blue-50/30 transition-colors ${isHighlight ? 'bg-blue-50/40' : ''}`}>
+                        <td className={`text-xs py-2.5 px-5 sticky left-0 ${isHighlight ? 'bg-blue-50/40 font-semibold text-gray-900' : `bg-white ${row.bold ? 'font-semibold text-gray-900' : 'text-gray-600'}`}`}>
                           {row.label}
                         </td>
                         {row.values.map((v, vi) => (
-                          <td key={vi} className={`text-xs text-right py-2.5 px-4 tabular-nums ${v !== null && v < 0 ? 'text-red-500' : 'text-gray-700'} ${row.bold ? 'font-semibold' : ''}`}>
+                          <td key={vi} className={`text-xs text-right py-2.5 px-4 tabular-nums ${v !== null && v < 0 ? 'text-red-500' : 'text-gray-700'} ${row.bold || isHighlight ? 'font-semibold' : ''}`}>
                             {formatCell(v, row.format)}
                           </td>
                         ))}
                         {nYears > 0 && (
                           <td className="text-xs text-right py-2.5 px-4 tabular-nums border-l border-gray-50">
                             {cagrVal !== null ? (
-                              <span className={cagrVal >= 0 ? 'text-emerald-600 font-medium' : 'text-red-500 font-medium'}>
+                              <span className={`inline-flex items-center gap-0.5 font-medium ${cagrVal >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                                <svg className={`w-2.5 h-2.5 flex-shrink-0 ${cagrVal < 0 ? 'rotate-180' : ''}`} viewBox="0 0 10 10" fill="currentColor">
+                                  <path d="M5 1L9 7H1L5 1Z" />
+                                </svg>
                                 {cagrVal > 0 ? '+' : ''}{cagrVal.toFixed(1)}%
                               </span>
                             ) : '—'}
@@ -632,17 +808,49 @@ export default function StockPageClient({
               <Link
                 key={s.ticker}
                 href={`/dionica/${s.ticker}`}
-                className="flex-shrink-0 bg-white rounded-xl border border-gray-100 shadow-sm p-4 w-40 hover:border-blue-200 hover:shadow-md transition-all"
+                className="flex-shrink-0 bg-white rounded-xl border border-gray-100 shadow-sm p-4 w-52 hover:border-blue-200 hover:shadow-md transition-all"
               >
-                <span className="text-xs font-mono font-semibold text-gray-700 block mb-1">{s.ticker}</span>
+                {/* Header */}
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-mono font-semibold text-gray-700">{s.ticker}</span>
+                  {s.dividend_yield !== null && s.dividend_yield > 0 && (
+                    <span className="text-[10px] font-medium px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded-full">
+                      Div {s.dividend_yield.toFixed(1)}%
+                    </span>
+                  )}
+                </div>
                 <span className="text-xs text-gray-500 block mb-2 truncate leading-tight">{s.name}</span>
-                <span className="text-base font-bold text-gray-900 tabular-nums block">
+                <span className="text-base font-bold text-gray-900 tabular-nums block mb-3">
                   {s.price !== null ? s.price.toFixed(0) : '—'}
                   <span className="text-xs font-normal text-gray-400 ml-0.5">{s.currency}</span>
                 </span>
-                {s.pe_ratio !== null && (
-                  <span className="text-[11px] text-gray-400">P/E {s.pe_ratio.toFixed(1)}x</span>
-                )}
+                {/* 2x2 metric grid */}
+                <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 border-t border-gray-50 pt-2">
+                  {s.pe_ratio !== null && (
+                    <div>
+                      <span className="text-[10px] text-gray-400 block">P/E</span>
+                      <span className="text-xs font-medium tabular-nums text-gray-700">{s.pe_ratio.toFixed(1)}x</span>
+                    </div>
+                  )}
+                  {s.roe !== null && (
+                    <div>
+                      <span className="text-[10px] text-gray-400 block">ROE</span>
+                      <span className="text-xs font-medium tabular-nums text-gray-700">{s.roe.toFixed(1)}%</span>
+                    </div>
+                  )}
+                  {s.net_margin !== null && (
+                    <div>
+                      <span className="text-[10px] text-gray-400 block">Marža</span>
+                      <span className="text-xs font-medium tabular-nums text-gray-700">{s.net_margin.toFixed(1)}%</span>
+                    </div>
+                  )}
+                  {s.ev_ebitda !== null && (
+                    <div>
+                      <span className="text-[10px] text-gray-400 block">EV/EBITDA</span>
+                      <span className="text-xs font-medium tabular-nums text-gray-700">{s.ev_ebitda.toFixed(1)}x</span>
+                    </div>
+                  )}
+                </div>
               </Link>
             ))}
           </div>
