@@ -2,11 +2,13 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import StockPageSidebar from '@/components/StockPageSidebar';
+import PriceChart from '@/components/PriceChart';
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid, Legend,
 } from 'recharts';
-import type { Stock, StockFinancials } from '@/lib/supabase';
+import type { Stock, StockFinancials, PriceHistory } from '@/lib/supabase';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -28,6 +30,7 @@ interface Props {
   sectorMedians: Record<string, number | null> | null;
   description: string | null;
   sifSim: string;
+  priceHistory: PriceHistory[];
 }
 
 // ---------------------------------------------------------------------------
@@ -236,7 +239,7 @@ function formatCell(v: number | null, format: TableRow['format']): string {
 // Main component
 // ---------------------------------------------------------------------------
 export default function StockPageClient({
-  stock, financials, scores, sector, similarStocks, zseMedians, sectorMedians, description, sifSim,
+  stock, financials, scores, sector, similarStocks, zseMedians, sectorMedians, description, sifSim, priceHistory,
 }: Props) {
   const [chartView, setChartView] = useState<'revenue' | 'profitability' | 'cashflow'>('revenue');
   const [tableTab, setTableTab] = useState<'rdg' | 'bilanca' | 'cf'>('rdg');
@@ -393,6 +396,25 @@ export default function StockPageClient({
   // Brza procjena
   const quickInsights = generateQuickAssessment(stock, scores, zseMedians, financials);
 
+  // Dividende — payout ratio i dividend coverage
+  const hasDividend = stock.dividend !== null && stock.dividend > 0;
+  const payoutRatio = hasDividend && stock.eps !== null && stock.eps > 0
+    ? (stock.dividend! / stock.eps) * 100 : null;
+
+  // Sidebar sections
+  const sidebarSections = [
+    { id: 'hero',           label: 'Pregled' },
+    ...(priceHistory.length > 0 ? [{ id: 'cijena', label: 'Cijena' }] : []),
+    ...((description || quickInsights.length > 0) ? [{ id: 'opis', label: 'Opis' }] : []),
+    { id: 'score',          label: 'Score' },
+    { id: 'valuacija',      label: 'Valuacija' },
+    { id: 'profitabilnost', label: 'Profitabilnost' },
+    ...(financials.length > 0 ? [{ id: 'financije', label: 'Financije' }] : []),
+    { id: 'dug',            label: 'Dug' },
+    ...(hasDividend ? [{ id: 'dividende', label: 'Dividende' }] : []),
+    ...(similarStocks.length > 0 ? [{ id: 'slicne', label: 'Slične' }] : []),
+  ];
+
   return (
     <div className="min-h-screen bg-gray-50/50">
 
@@ -412,8 +434,14 @@ export default function StockPageClient({
         </div>
       </header>
 
+      {/* ── Main layout: sidebar + content ── */}
+      <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:flex lg:gap-8 lg:items-start">
+        <StockPageSidebar sections={sidebarSections} />
+
+        <div className="flex-1 min-w-0">
+
       {/* ── 1. HERO ── */}
-      <section className="max-w-[1200px] mx-auto px-4 sm:px-6 pt-6 pb-2">
+      <section id="hero" style={{ scrollMarginTop: '80px' }} className="pt-6 pb-2">
         {/* Breadcrumb */}
         <nav className="flex items-center gap-1.5 text-xs text-gray-400 mb-4">
           <Link href="/" className="hover:text-gray-600 transition-colors">Screener</Link>
@@ -518,9 +546,16 @@ export default function StockPageClient({
         </div>
       </section>
 
+      {/* ── 1b. PRICE CHART ── */}
+      {priceHistory.length > 0 && (
+        <section id="cijena" style={{ scrollMarginTop: '80px' }} className="py-4">
+          <PriceChart history={priceHistory} currency={stock.currency} />
+        </section>
+      )}
+
       {/* ── 2. OPIS TVRTKE + BRZA PROCJENA ── */}
       {(description || quickInsights.length > 0) && (
-        <section className="max-w-[1200px] mx-auto px-4 sm:px-6 py-4">
+        <section id="opis" style={{ scrollMarginTop: '80px' }} className="py-4">
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
             {description && (
               <p className="text-sm text-gray-600 leading-relaxed mb-4">{description}</p>
@@ -543,7 +578,7 @@ export default function StockPageClient({
       )}
 
       {/* ── 3. KOMPOZITNI SCORE ── */}
-      <section className="max-w-[1200px] mx-auto px-4 sm:px-6 pb-4">
+      <section id="score" style={{ scrollMarginTop: '80px' }} className="pb-4">
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
           <div className="flex items-center justify-between mb-5">
             <h2 className="text-lg font-bold text-gray-900">Kompozitni score</h2>
@@ -562,7 +597,7 @@ export default function StockPageClient({
       </section>
 
       {/* ── 4. VALUACIJA ── */}
-      <section className="max-w-[1200px] mx-auto px-4 sm:px-6 py-6">
+      <section id="valuacija" style={{ scrollMarginTop: '80px' }} className="py-6">
         <h2 className="text-lg font-bold text-gray-900 mb-4">Valuacija</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {valMetrics.map((m) => {
@@ -685,8 +720,7 @@ export default function StockPageClient({
       </section>
 
       {/* ── 5. PROFITABILNOST ── */}
-
-      <section className="max-w-[1200px] mx-auto px-4 sm:px-6 pb-6">
+      <section id="profitabilnost" style={{ scrollMarginTop: '80px' }} className="pb-6">
         <h2 className="text-lg font-bold text-gray-900 mb-4">Profitabilnost</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {profMetrics.map((m) => {
@@ -759,9 +793,9 @@ export default function StockPageClient({
         </div>
       </section>
 
-      {/* ── 4. POVIJESNI GRAF ── */}
+      {/* ── 6. FINANCIJSKI PREGLED (GRAF + TABLICE) ── */}
       {financials.length > 0 && (
-        <section className="max-w-[1200px] mx-auto px-4 sm:px-6 pb-6">
+        <section id="financije" style={{ scrollMarginTop: '80px' }} className="pb-6">
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
               <h2 className="text-lg font-bold text-gray-900">Financijski pregled</h2>
@@ -849,9 +883,9 @@ export default function StockPageClient({
         </section>
       )}
 
-      {/* ── 5. FINANCIJSKE TABLICE ── */}
+      {/* ── 7. FINANCIJSKE TABLICE ── */}
       {financials.length > 0 && (
-        <section className="max-w-[1200px] mx-auto px-4 sm:px-6 pb-6">
+        <section className="pb-6">
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
             {/* Tabs */}
             <div className="flex border-b border-gray-100">
@@ -891,7 +925,7 @@ export default function StockPageClient({
                     ))}
                     {nYears > 0 && (
                       <th className="text-right text-xs text-gray-400 font-medium py-2.5 px-4 min-w-[80px] border-l border-gray-50">
-                        CAGR
+                        CAGR ({nYears}g)
                       </th>
                     )}
                   </tr>
@@ -938,7 +972,7 @@ export default function StockPageClient({
       )}
 
       {/* ── 8. DUG I FINANCIJSKO ZDRAVLJE ── */}
-      <section className="max-w-[1200px] mx-auto px-4 sm:px-6 pb-6">
+      <section id="dug" style={{ scrollMarginTop: '80px' }} className="pb-6">
         <h2 className="text-lg font-bold text-gray-900 mb-4">Dug i financijsko zdravlje</h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
@@ -983,9 +1017,89 @@ export default function StockPageClient({
         </div>
       </section>
 
-      {/* ── 9. SLIČNE DIONICE ── */}
+      {/* ── 9. DIVIDENDE ── */}
+      {hasDividend && (
+        <section id="dividende" style={{ scrollMarginTop: '80px' }} className="pb-6">
+          <h2 className="text-lg font-bold text-gray-900 mb-4">Dividende</h2>
+          {/* KPI cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+            {[
+              {
+                label: 'Div. prinos',
+                value: stock.dividend_yield !== null ? `${stock.dividend_yield.toFixed(2)}%` : '—',
+                tip: 'Dividenda / Cijena',
+                color: stock.dividend_yield !== null && stock.dividend_yield >= 3 ? 'text-emerald-600' : 'text-gray-900',
+              },
+              {
+                label: 'Dividenda / dionica',
+                value: stock.dividend !== null ? `${stock.dividend.toFixed(2)} ${stock.currency}` : '—',
+                tip: 'Isplaćena dividenda po dionici',
+                color: 'text-gray-900',
+              },
+              {
+                label: 'Payout ratio',
+                value: payoutRatio !== null ? `${payoutRatio.toFixed(1)}%` : '—',
+                tip: 'Dividenda / EPS × 100%',
+                color: payoutRatio !== null && payoutRatio > 100 ? 'text-red-500' : payoutRatio !== null && payoutRatio > 75 ? 'text-amber-500' : 'text-emerald-600',
+              },
+              {
+                label: 'EPS pokriće',
+                value: hasDividend && stock.eps !== null && stock.eps > 0
+                  ? `${(stock.eps / stock.dividend!).toFixed(2)}x` : '—',
+                tip: 'EPS / Dividenda (>1.5x je zdravo)',
+                color: hasDividend && stock.eps !== null && stock.eps > 0
+                  ? (stock.eps / stock.dividend! >= 1.5 ? 'text-emerald-600' : stock.eps / stock.dividend! >= 1 ? 'text-amber-500' : 'text-red-500')
+                  : 'text-gray-900',
+              },
+            ].map(stat => (
+              <div key={stat.label} className="bg-white rounded-xl border border-gray-100 p-3.5 shadow-sm">
+                <p className="text-[11px] text-gray-400 mb-0.5">{stat.label}</p>
+                <p className={`text-lg font-bold tabular-nums ${stat.color}`}>{stat.value}</p>
+                <p className="text-[10px] text-gray-300 mt-0.5">{stat.tip}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* EPS trend + dividend reference — shows dividend sustainability over time */}
+          {financials.length > 0 && financials.some(f => f.eps !== null) && (
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-sm font-medium text-gray-700">EPS vs. Dividenda po dionici</p>
+                <p className="text-[11px] text-gray-400">Dividenda = snapshot zadnjeg isplaćenog iznosa</p>
+              </div>
+              <div className="h-48">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart
+                    data={financials.map(f => ({
+                      year: String(f.year),
+                      eps: f.eps,
+                      dividenda: stock.dividend,
+                    }))}
+                    margin={{ top: 5, right: 5, bottom: 0, left: 0 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                    <XAxis dataKey="year" tick={{ fontSize: 11 }} tickLine={false} axisLine={{ stroke: '#e5e7eb' }} />
+                    <YAxis tick={{ fontSize: 11 }} tickFormatter={v => v.toFixed(0)} width={45} axisLine={false} tickLine={false} />
+                    <Tooltip
+                      formatter={(v, name) => [`${Number(v ?? 0).toFixed(2)} ${stock.currency}`, String(name)]}
+                      contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '12px' }}
+                    />
+                    <Bar dataKey="eps" name="EPS" fill="#dbeafe" stroke="#93c5fd" strokeWidth={1} radius={[3,3,0,0]} />
+                    <Line dataKey="dividenda" name="Dividenda" stroke="#f59e0b" strokeWidth={2} strokeDasharray="5 3" dot={false} />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+              <p className="text-[10px] text-gray-300 mt-2">
+                * EPS po godinama iz financijskih izvještaja; dividenda prikazana kao referentna linija (zadnji poznati iznos)
+              </p>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* ── 11. SLIČNE DIONICE ── */}
       {similarStocks.length > 0 && (
-        <section className="max-w-[1200px] mx-auto px-4 sm:px-6 pb-10">
+        <section id="slicne" style={{ scrollMarginTop: '80px' }} className="pb-10">
           <h2 className="text-lg font-bold text-gray-900 mb-4">Slične dionice</h2>
           <div className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
             {similarStocks.map((s) => (
@@ -1041,6 +1155,8 @@ export default function StockPageClient({
         </section>
       )}
 
+        </div>{/* flex-1 min-w-0 */}
+      </div>{/* max-w wrapper + sidebar */}
     </div>
   );
 }

@@ -114,6 +114,14 @@ export type StockFinancials = {
   created_at: string;
 };
 
+export type PriceHistory = {
+  id: number;
+  ticker: string;
+  date: string;
+  price: number;
+  created_at: string;
+};
+
 export type EmailAlert = {
   id: string;
   email: string;

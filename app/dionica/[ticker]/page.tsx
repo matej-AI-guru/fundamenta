@@ -5,7 +5,7 @@ import { getSector, getSimilarTickers } from '@/lib/sectors';
 import { getDescription } from '@/lib/descriptions';
 import { computeDetailedScore } from '@/lib/score';
 import { getSupabaseAdmin } from '@/lib/supabase';
-import type { Stock, StockFinancials } from '@/lib/supabase';
+import type { Stock, StockFinancials, PriceHistory } from '@/lib/supabase';
 import StockPageClient from './StockPageClient';
 
 export const revalidate = 3600; // ISR — rebuild every hour
@@ -78,7 +78,7 @@ export default async function StockPage({
 
   const supabase = getSupabaseAdmin();
 
-  const [{ data: stock }, { data: allStocks }, { data: financials }] = await Promise.all([
+  const [{ data: stock }, { data: allStocks }, { data: financials }, { data: priceHistoryRaw }] = await Promise.all([
     supabase.from('stocks').select('*').eq('ticker', ticker).single(),
     supabase.from('stocks').select('*').order('market_cap', { ascending: false }),
     supabase
@@ -86,6 +86,11 @@ export default async function StockPage({
       .select('*')
       .eq('ticker', ticker)
       .order('year', { ascending: true }),
+    supabase
+      .from('price_history')
+      .select('id,ticker,date,price,created_at')
+      .eq('ticker', ticker)
+      .order('date', { ascending: true }),
   ]);
 
   if (!stock || !allStocks) notFound();
@@ -131,6 +136,7 @@ export default async function StockPage({
         sectorMedians={sectorMedians}
         description={description}
         sifSim={sifSim}
+        priceHistory={(priceHistoryRaw ?? []) as PriceHistory[]}
       />
     </>
   );

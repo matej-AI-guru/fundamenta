@@ -64,6 +64,18 @@ export async function POST(req: NextRequest) {
       if (histErr) console.error('stock_financials upsert error:', histErr);
     }
 
+    // Upsert daily price snapshots to price_history
+    const today = new Date().toISOString().split('T')[0];
+    const priceRows = stockRows
+      .filter(s => s.price !== null)
+      .map(s => ({ ticker: s.ticker, date: today, price: s.price! }));
+    if (priceRows.length > 0) {
+      const { error: phErr } = await supabaseAdmin
+        .from('price_history')
+        .upsert(priceRows, { onConflict: 'ticker,date' });
+      if (phErr) console.error('price_history upsert error:', phErr);
+    }
+
     // Remove any tickers from DB that are no longer on the ZSE list
     const { error: deleteError, count: deleted } = await supabaseAdmin
       .from('stocks')
