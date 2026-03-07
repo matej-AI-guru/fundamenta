@@ -99,7 +99,8 @@ export default async function StockPage({
       .from('price_history')
       .select('id,ticker,date,price,created_at')
       .eq('ticker', ticker)
-      .order('date', { ascending: true }),
+      .order('date', { ascending: true })
+      .limit(10000),
   ]);
 
   // Compute TTM from last 4 standalone quarters
