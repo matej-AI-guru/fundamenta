@@ -91,11 +91,22 @@ export type StockFinancials = {
   id: string;
   ticker: string;
   year: number;
+  // RDG
   revenue: number | null;
   ebit: number | null;
   depreciation: number | null;
   net_profit: number | null;
   ebitda: number | null;
+  other_operating_income: number | null;
+  material_costs: number | null;
+  personnel_costs: number | null;
+  operating_expenses: number | null;
+  operating_profit: number | null;
+  financial_income: number | null;
+  financial_expenses: number | null;
+  profit_before_tax: number | null;
+  income_tax: number | null;
+  // Bilanca
   total_assets: number | null;
   equity: number | null;
   current_assets: number | null;
@@ -103,14 +114,30 @@ export type StockFinancials = {
   cash: number | null;
   long_term_liabilities: number | null;
   current_liabilities: number | null;
+  non_current_assets: number | null;
+  intangible_assets: number | null;
+  tangible_assets: number | null;
+  inventories: number | null;
+  receivables: number | null;
+  share_capital: number | null;
+  retained_earnings: number | null;
+  provisions: number | null;
+  // Novčani tok
   operating_cash_flow: number | null;
   capex: number | null;
   free_cash_flow: number | null;
+  investing_cash_flow: number | null;
+  financing_cash_flow: number | null;
+  dividends_paid: number | null;
+  // Izračunato
   net_margin: number | null;
   roe: number | null;
   roce: number | null;
   current_ratio: number | null;
   eps: number | null;
+  // Meta
+  source: string | null;
+  report_type: string | null;
   created_at: string;
 };
 
