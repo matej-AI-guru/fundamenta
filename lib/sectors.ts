@@ -16,7 +16,6 @@ export const SECTORS: Record<string, string> = {
   ERNT:  'IT i telekomunikacije',
   GRNL:  'Agroprerada',
   HPB:   'Bankarstvo',
-  HPDG:  'Energetika',
   HT:    'Telekomunikacije',
   IG:    'Građevinarstvo',
   IGH:   'Građevinarstvo',

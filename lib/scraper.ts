@@ -86,7 +86,7 @@ export const ZSE_TICKERS = [
   'DDJH', 'DLKV',
   'ERNT',
   'GRNL',
-  'HPB', 'HPDG', 'HT',
+  'HPB', 'HT',
   'IG', 'IGH', 'IKBA', 'INA', 'INGR',
   'JDGT', 'JDOS', 'JDPL',
   'KODT', 'KODT2', 'KOEI', 'KRAS',
