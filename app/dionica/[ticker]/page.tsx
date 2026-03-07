@@ -99,8 +99,7 @@ export default async function StockPage({
       .from('price_history')
       .select('id,ticker,date,price,created_at')
       .eq('ticker', ticker)
-      .order('date', { ascending: true })
-      .limit(10000),
+      .order('date', { ascending: false }),
   ]);
 
   // Compute TTM from last 4 standalone quarters
@@ -159,7 +158,7 @@ export default async function StockPage({
         sectorMedians={sectorMedians}
         description={description}
         sifSim={sifSim}
-        priceHistory={(priceHistoryRaw ?? []) as PriceHistory[]}
+        priceHistory={(priceHistoryRaw ?? []).slice().reverse() as PriceHistory[]}
       />
     </>
   );
