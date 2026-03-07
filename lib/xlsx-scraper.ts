@@ -1,5 +1,7 @@
 import * as XLSX from 'xlsx';
 
+const HRK_TO_EUR = 7.5345;
+
 // Extended financial data from XLSX TFI-POD/GFI-POD reports
 export interface XlsxFinancialData {
   ticker: string;
@@ -25,25 +27,25 @@ export interface XlsxFinancialData {
   current_liabilities: number | null;      // AOP 109 - Kratkoročne obveze
 
   // --- RDG ---
-  revenue: number | null;                  // AOP 001 - Poslovni prihodi
-  other_operating_income: number | null;   // AOP 006 - Ostali poslovni prihodi (izvan grupe)
-  material_costs: number | null;           // AOP 009 - Materijalni troškovi
-  personnel_costs: number | null;          // AOP 013 - Troškovi osoblja
-  depreciation: number | null;             // AOP 017 - Amortizacija
-  operating_expenses: number | null;       // AOP 007 - Poslovni rashodi
+  revenue: number | null;                  // Poslovni prihodi
+  other_operating_income: number | null;   // Ostali poslovni prihodi (izvan grupe)
+  material_costs: number | null;           // Materijalni troškovi
+  personnel_costs: number | null;          // Troškovi osoblja
+  depreciation: number | null;             // Amortizacija
+  operating_expenses: number | null;       // Poslovni rashodi
   operating_profit: number | null;         // Calculated: revenue - operating_expenses
-  financial_income: number | null;         // AOP 030 - Financijski prihodi
-  financial_expenses: number | null;       // AOP 041 - Financijski rashodi
-  profit_before_tax: number | null;        // AOP 055 - Dobit prije oporezivanja
-  income_tax: number | null;              // AOP 058 - Porez na dobit
-  net_profit: number | null;              // AOP 059 - Dobit/gubitak razdoblja
+  financial_income: number | null;         // Financijski prihodi
+  financial_expenses: number | null;       // Financijski rashodi
+  profit_before_tax: number | null;        // Dobit prije oporezivanja
+  income_tax: number | null;              // Porez na dobit
+  net_profit: number | null;              // Dobit/gubitak razdoblja
 
   // --- Novčani tok (Direct method - NT_D) ---
-  operating_cash_flow: number | null;      // AOP 014 - Neto novčani tok od poslovnih aktivnosti
-  investing_cash_flow: number | null;      // AOP 028 - Neto novčani tok od investicijskih aktivnosti
-  capex: number | null;                   // AOP 022 - Novčani izdaci za kupnju dugotrajne imovine
-  financing_cash_flow: number | null;      // AOP 040 - Neto novčani tok od financijskih aktivnosti
-  dividends_paid: number | null;           // AOP 035 - Novčani izdaci za isplatu dividendi
+  operating_cash_flow: number | null;      // Neto novčani tok od poslovnih aktivnosti
+  investing_cash_flow: number | null;      // Neto novčani tok od investicijskih aktivnosti
+  capex: number | null;                   // Novčani izdaci za kupnju dugotrajne imovine
+  financing_cash_flow: number | null;      // Neto novčani tok od financijskih aktivnosti
+  dividends_paid: number | null;           // Novčani izdaci za isplatu dividendi
 
   // --- Izračunato ---
   ebit: number | null;
@@ -56,16 +58,12 @@ export interface XlsxFinancialData {
   eps: number | null;
 }
 
-// AOP mapping: { sheetKey: { aopNumber: yearOffset → column index } }
-// Bilanca: col 6 = AOP, col 7 = prev year, col 8 = current year
-// RDG:     col 6 = AOP, col 7 = prev cumulative, col 9 = current cumulative
-// NT_D:    col 6 = AOP, col 7 = prev year, col 8 = current year
-
 interface AopMapping {
   aop: number;
   field: string;
 }
 
+// Bilanca AOP numbers are the same across all years
 const BILANCA_AOPS: AopMapping[] = [
   { aop: 2,   field: 'non_current_assets' },
   { aop: 3,   field: 'intangible_assets' },
@@ -84,7 +82,8 @@ const BILANCA_AOPS: AopMapping[] = [
   { aop: 109, field: 'current_liabilities' },
 ];
 
-const RDG_AOPS: AopMapping[] = [
+// NEW RDG AOP scheme (2021+)
+const RDG_AOPS_NEW: AopMapping[] = [
   { aop: 1,   field: 'revenue' },
   { aop: 6,   field: 'other_operating_income' },
   { aop: 7,   field: 'operating_expenses' },
@@ -98,12 +97,37 @@ const RDG_AOPS: AopMapping[] = [
   { aop: 59,  field: 'net_profit' },
 ];
 
-const NT_D_AOPS: AopMapping[] = [
+// OLD RDG AOP scheme (2019-2020)
+const RDG_AOPS_OLD: AopMapping[] = [
+  { aop: 125, field: 'revenue' },
+  { aop: 130, field: 'other_operating_income' },
+  { aop: 131, field: 'operating_expenses' },
+  { aop: 133, field: 'material_costs' },
+  { aop: 137, field: 'personnel_costs' },
+  { aop: 141, field: 'depreciation' },
+  { aop: 154, field: 'financial_income' },
+  { aop: 165, field: 'financial_expenses' },
+  { aop: 180, field: 'profit_before_tax' },
+  { aop: 182, field: 'income_tax' },
+  { aop: 183, field: 'net_profit' },
+];
+
+// NEW NT_D AOP scheme (2021+)
+const NT_D_AOPS_NEW: AopMapping[] = [
   { aop: 14, field: 'operating_cash_flow' },
   { aop: 22, field: 'capex' },
   { aop: 28, field: 'investing_cash_flow' },
   { aop: 35, field: 'dividends_paid' },
   { aop: 40, field: 'financing_cash_flow' },
+];
+
+// OLD NT_D AOP scheme (2019-2020)
+const NT_D_AOPS_OLD: AopMapping[] = [
+  { aop: 12, field: 'operating_cash_flow' },
+  { aop: 20, field: 'capex' },
+  { aop: 26, field: 'investing_cash_flow' },
+  { aop: 33, field: 'dividends_paid' },
+  { aop: 38, field: 'financing_cash_flow' },
 ];
 
 function extractAopValues(
@@ -162,6 +186,34 @@ function detectYear(rows: unknown[][]): number {
   return new Date().getFullYear() - 1;
 }
 
+function detectCurrency(rows: unknown[][]): 'EUR' | 'HRK' {
+  for (let i = 0; i < Math.min(10, rows.length); i++) {
+    const rowStr = String(rows[i]?.join(' ') || '').toLowerCase();
+    if (rowStr.includes('kunama') || rowStr.includes('kuna')) return 'HRK';
+    if (rowStr.includes('eurima') || rowStr.includes('euro')) return 'EUR';
+  }
+  return 'EUR'; // default
+}
+
+function detectAopScheme(rdgRows: unknown[][]): 'old' | 'new' {
+  // Check first data AOP in RDG: if >= 125 → old scheme, if < 10 → new scheme
+  for (const row of rdgRows) {
+    if (typeof row[0] === 'number') continue;
+    if (typeof row[6] === 'number' && row[6] > 0) {
+      return row[6] >= 100 ? 'old' : 'new';
+    }
+  }
+  return 'new';
+}
+
+function convertToEur(values: Record<string, number | null>): Record<string, number | null> {
+  const result: Record<string, number | null> = {};
+  for (const [key, val] of Object.entries(values)) {
+    result[key] = val !== null ? Math.round(val / HRK_TO_EUR) : null;
+  }
+  return result;
+}
+
 function findSheet(wb: XLSX.WorkBook, ...names: string[]): XLSX.WorkSheet | null {
   for (const name of names) {
     const found = wb.SheetNames.find(
@@ -212,6 +264,15 @@ export async function scrapeXlsx(
     : [];
 
   const year = detectYear(bilancaRows);
+  const currency = detectCurrency(bilancaRows);
+  const aopScheme = detectAopScheme(rdgRows);
+  const isHrk = currency === 'HRK';
+
+  const rdgAops = aopScheme === 'old' ? RDG_AOPS_OLD : RDG_AOPS_NEW;
+  const ntdAops = aopScheme === 'old' ? NT_D_AOPS_OLD : NT_D_AOPS_NEW;
+
+  console.log(`[xlsx] Year: ${year}, Currency: ${currency}, AOP scheme: ${aopScheme}`);
+
   const results: XlsxFinancialData[] = [];
 
   // Extract for both years: current (yearOffset=0) and previous (yearOffset=1)
@@ -220,17 +281,24 @@ export async function scrapeXlsx(
 
     // Bilanca: AOP in col 6, prev=col 7, curr=col 8
     const bilancaValueCol = yearOffset === 0 ? 8 : 7;
-    const bilanca = extractAopValues(bilancaRows, BILANCA_AOPS, 6, bilancaValueCol);
+    let bilanca = extractAopValues(bilancaRows, BILANCA_AOPS, 6, bilancaValueCol);
 
     // RDG: AOP in col 6, prev cumul=col 7, curr cumul=col 9
     const rdgValueCol = yearOffset === 0 ? 9 : 7;
-    const rdg = extractAopValues(rdgRows, RDG_AOPS, 6, rdgValueCol);
+    let rdg = extractAopValues(rdgRows, rdgAops, 6, rdgValueCol);
 
     // NT_D: AOP in col 6, prev=col 7, curr=col 8
     const ntdValueCol = yearOffset === 0 ? 8 : 7;
-    const ntd = ntdRows.length > 0
-      ? extractAopValues(ntdRows, NT_D_AOPS, 6, ntdValueCol)
+    let ntd = ntdRows.length > 0
+      ? extractAopValues(ntdRows, ntdAops, 6, ntdValueCol)
       : { operating_cash_flow: null, capex: null, investing_cash_flow: null, dividends_paid: null, financing_cash_flow: null };
+
+    // Convert HRK to EUR if needed
+    if (isHrk) {
+      bilanca = convertToEur(bilanca);
+      rdg = convertToEur(rdg);
+      ntd = convertToEur(ntd);
+    }
 
     // Calculated fields
     const revenue = rdg.revenue as number | null;
