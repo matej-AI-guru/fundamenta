@@ -3,95 +3,95 @@
 
 export const COMPANY_DESCRIPTIONS: Record<string, string> = {
   ACI:
-    'ACI d.d. upravlja mrežom marina duž jadranske obale i vodeći je operator nautičkog turizma u Hrvatskoj. Tvrtka pruža usluge veza, servisiranja plovila i pratećih sadržaja na više od 20 lokacija od Istre do Dalmacije.',
+    'ACI d.d. (Adriatic Croatia International Club) upravlja mrežom od 22 marine duž jadranske obale i vodeći je operator nautičkog turizma u Hrvatskoj od 1983. godine. Tvrtka pruža usluge veza, servisiranja plovila i pratećih sadržaja od Istre do Dubrovnika.',
   ADPL:
     'AD Plastik d.d. je vodeći hrvatski proizvođač plastičnih komponenti za automobilsku industriju sa sjedištem u Solinu. Tvrtka opskrbljuje globalne OEM proizvođače poput Renaulta, Stellantisa i Volkswagen grupe, a prisutna je i s pogonima u Srbiji i Rumunjskoj.',
   ADRS:
-    'Adris Grupa d.d. je diversificirana hrvatska holding kompanija sa sjedištem u Rovinju čija su osnovna poslovna područja turizam, osiguranje i prehrana. Kroz kćer Maistra d.d. upravlja hotelskim i turističkim kompleksima u Rovinju i Vrsaru, a u vlasništvu je i Croatia Osiguranja.',
+    'Adris Grupa d.d. je diversificirana hrvatska holding kompanija sa sjedištem u Rovinju. Osnovna poslovna područja su turizam (kroz kćer Maistra d.d.), osiguranje (Croatia Osiguranje) i prehrana, s konsolidiranim prihodima od preko milijardu eura.',
   ADRS2:
     'Adris Grupa d.d. — povlaštene dionice (iste temeljne poslovne aktivnosti kao redovne dionice ADRS). Adris je diversificirana hrvatska holding kompanija s fokusom na turizam, osiguranje i prehranu.',
   ARNT:
-    'Arenaturist d.d. je istaknuta turistička kompanija sa sjedištem u Puli koja upravlja hotelima, apartmanskim kompleksima i kampovima na poluotoku Istri. Tvrtka je dio Arenaturist grupe i u vlasništvu je međunarodnog turističkog operatera Pernod Ricard Hotels & Resorts.',
+    'Arena Hospitality Group d.d. (bivši Arenaturist) je međunarodna hotelska kompanija sa sjedištem u Puli. Upravlja hotelima, apartmanskim kompleksima i kampovima u Hrvatskoj, Njemačkoj i Mađarskoj, pod brendom Park Plaza.',
   ATGR:
-    'Atlantic Grupa d.d. je vodeća regionalna prehrambena i distribucijska kompanija sa sjedištem u Zagrebu, poznata po brendovima Cedevita, Argeta, Biovita i Multivita. Tvrtka distribuira i vlastite i vanjske brendove na više od 40 tržišta u regiji i šire.',
+    'Atlantic Grupa d.d. je vodeća regionalna prehrambena i distribucijska kompanija sa sjedištem u Zagrebu, poznata po brendovima Cedevita, Argeta, Barcaffè i Multipower. Distribuira vlastite i vanjske brendove na više od 40 tržišta.',
   AUHR:
-    'Auto Hrvatska d.d. je hrvatska kompanija za distribuciju i prodaju automobila sa sjedištem u Zagrebu. Zastupa više međunarodnih automobilskih marki i pruža usluge servisiranja i popravka vozila.',
+    'Auto Hrvatska d.d. je vodeća kompanija u automobilskoj industriji u regiji sa sjedištem u Zagrebu. Poslovna grupa obuhvaća 10 tvrtki na 29 lokacija u Hrvatskoj, Sloveniji, BiH i Sjevernoj Makedoniji s više od 800 zaposlenika, a bavi se prodajom i održavanjem osobnih i komercijalnih vozila.',
   CKML:
-    'Čakovečki Mlinovi d.d. su prehrambena kompanija sa sjedištem u Čakovcu specijalizirana za preradu žitarica i proizvodnju brašna, mješavina za tijesta i stočne hrane. Tvrtka je jedan od vodećih mlinarskih poduzeća u sjeverozapadnoj Hrvatskoj.',
+    'Čakovečki mlinovi d.d. su jedna od najstarijih hrvatskih prehrambenih i trgovačkih kompanija, osnovana 1893. u Čakovcu. Tvrtka upravlja vertikalno integriranim poslovnim modelom koji obuhvaća proizvodnju mlinarskih, pekarskih i uljnih proizvoda te maloprodaju mješovitom robom.',
   CROS:
     'Croatia Osiguranje d.d. je najveća hrvatska osiguravajuća kuća s tradicijom dužom od 150 godina. U vlasništvu je Adris Grupe i nudi cjelovit portfelj neživotnih i životnih osiguranja privatnim i poslovnim klijentima.',
   CROS2:
     'Croatia Osiguranje d.d. — povlaštene dionice (iste temeljne poslovne aktivnosti kao redovne dionice CROS). Tvrtka je najveća hrvatska osiguravajuća kuća u vlasništvu Adris Grupe.',
   CTKS:
-    'Chromos-Agro d.d. je hrvatska tvrtka koja se bavi distribucijom sredstava za zaštitu bilja, gnojiva i sjemena za poljoprivredu. Tvrtka opslužuje profesionalne poljoprivrednike i agrarni sektor u Hrvatskoj i regiji.',
+    'Čateks d.d. je jedan od najvećih tekstilnih proizvođača u regiji sa sjedištem u Čakovcu, osnovan 1874. godine. Tvrtka proizvodi tehničke tekstile, umjetnu kožu, kućni tekstil i materijale za posebne namjene (vojska, policija, vatrogasci, medicina).',
   DDJH:
-    'Đuro Đaković Holding d.d. je industrijska kompanija sa sjedištem u Slavonskom Brodu s tradicijom u proizvodnji željezničkih vagona, tlačnih posuda i čeličnih konstrukcija. Tvrtka je jedna od rijetkih u regiji s kapacitetima za tešku industrijsku obradu metala.',
+    'Đuro Đaković Grupa d.d. je industrijska kompanija sa sjedištem u Slavonskom Brodu s tradicijom u obrambenim sustavima, transportu (željeznička vozila) te energetici i infrastrukturi. Zapošljava preko 1.100 ljudi u četiri društva grupe.',
   DLKV:
-    'Dalekovod d.d. je hrvatska inženjerska i izvođačka kompanija specijalizirana za izgradnju elektroenergetske infrastrukture — dalekovoda, transformatorskih stanica i telekomunikacijskih mreža. Izvodi projekte diljem Europe, Afrike i Bliskog Istoka.',
+    'Dalekovod d.d. je hrvatska inženjerska i izvođačka kompanija specijalizirana za izgradnju elektroenergetske infrastrukture — dalekovoda, transformatorskih stanica i telekomunikacijskih mreža. Od 2022. dio je Končar Grupe.',
   ERNT:
     'Ericsson Nikola Tesla d.d. je vodeća hrvatska ICT kompanija i podružnica globalnog Ericssona. Specijalizirana je za telekomunikacijska rješenja, mrežnu infrastrukturu 5G mreža i digitalne usluge za operatere i poslovne korisnike u regiji.',
   GRNL:
-    'Granolio d.d. je hrvatska agroprehrambena kompanija sa sjedištem u Zagrebu specijalizirana za otkup, preradu i distribuciju žitarica, uljarica i brašna. Tvrtka djeluje u cijelom lancu vrijednosti od polja do finalnog potrošača.',
+    'Granolio d.d. je hrvatska agroprehrambena kompanija sa sjedištem u Zagrebu koja djeluje u cijelom lancu vrijednosti od otkupa i prerade žitarica i uljarica do distribucije finalnih proizvoda potrošačima.',
   HPB:
-    'Hrvatska Poštanska Banka d.d. (HPB) je univerzalna banka u vlasništvu Republike Hrvatske sa sjedištem u Zagrebu. Nudi cjelovit portfelj bankarskih usluga za građane, poduzetnike i javni sektor, s naglaskom na dostupnost usluga putem poštanske mreže.',
+    'Hrvatska Poštanska Banka d.d. (HPB) je univerzalna banka u pretežnom vlasništvu Republike Hrvatske (77%) sa sjedištem u Zagrebu. Pruža cjelovit portfelj bankarskih usluga za građane, poduzetnike i javni sektor.',
   HPDG:
-    'HEP-Plin d.d. je hrvatska tvrtka iz HEP grupe koja se bavi distribucijom prirodnog plina i pružanjem energetskih usluga krajnjim kupcima. Tvrtka održava i razvija plinsku distribucijsku mrežu na područjima koja opslužuje.',
+    'HEP ODS d.o.o. (operator distribucijskog sustava) je dio HEP grupe zadužen za distribuciju električne energije krajnjim korisnicima u Hrvatskoj. Upravlja, održava i razvija elektrodistribucijsku mrežu.',
   HT:
     'Hrvatski Telekom d.d. (HT) je vodeći telekomunikacijski operator u Hrvatskoj i dio Deutsche Telekom grupe. Pruža fiksnu i mobilnu telefoniju, internet, televiziju i ICT usluge privatnim i poslovnim korisnicima.',
   IG:
-    'IG Invest d.d. je hrvatska holding kompanija s investicijama u industrijskom sektoru. Tvrtka upravlja portfeljem poslovnih udjela u industrijskim i prerađivačkim poduzećima.',
+    'ING-GRAD d.d. je hrvatska kompanija za specijalne građevinske radove sa sjedištem u Zagrebu. Tvrtka je 2025. uvrstila dionice na službeno tržište Zagrebačke burze putem javne ponude.',
   IGH:
-    'Institut IGH d.d. je vodeća hrvatska inženjerska, istraživačka i konzultantska kompanija specijalizirana za geotehniku, prometnice, mostove, tunele i ostale građevinske projekte. Pruža usluge projektiranja, nadzora i istraživanja za javne i privatne investitore.',
+    'Institut IGH d.d. je jedna od vodećih europskih kompanija za istraživanje i razvoj u graditeljstvu, osnovana 1949. Pruža usluge projektiranja, nadzora, ispitivanja, certifikacije, BIM-a i laboratorijskih analiza za javne i privatne investitore.',
   IKBA:
-    'Istarska Kreditna Banka Umag d.d. (IKBA) je regionalna banka sa sjedištem u Umagu koja pruža bankarske usluge privatnim osobama i malim poduzetnicima na području Istre. Specijalizirana je za stambene i potrošačke kredite te depozitne usluge.',
+    'Istarska Kreditna Banka Umag d.d. (IKB) je regionalna banka sa sjedištem u Umagu s tradicijom poslovanja od 1956. godine. Pruža bankarske usluge privatnim osobama i poduzetnicima na području Istre.',
   INA:
-    'INA d.d. je integrirani naftno-plinski konzern i vodeća energetska kompanija u Hrvatskoj. Bavi se istraživanjem i eksploatacijom ugljikovodika, rafinerijskom preradom nafte te maloprodajom goriva i energenata, a u vlasništvu je MOL grupe i Republike Hrvatske.',
+    'INA d.d. je integrirani naftno-plinski konzern i vodeća energetska kompanija u Hrvatskoj s prihodima od gotovo 4 milijarde eura. Bavi se istraživanjem i eksploatacijom ugljikovodika, rafinerijskom preradom te maloprodajom goriva, a u suvlasništvu je MOL grupe i Republike Hrvatske.',
   INGR:
-    'Ingra d.d. je hrvatska građevinska i projektantska kompanija specijalizirana za izgradnju energetskih, industrijskih i infrastrukturnih objekata. Tvrtka ima iskustvo u realizaciji složenih projekata u regiji jugoistočne Europe.',
+    'Ingra d.d. je hrvatska građevinska i projektantska kompanija sa sjedištem u Zagrebu specijalizirana za energetske, industrijske i infrastrukturne objekte. Tvrtka je uspješno izašla iz predstečajnog postupka i nastavlja poslovanje na tržištima jugoistočne Europe.',
   JDGT:
-    'Jadranka Gastronomija d.o.o., dio Jadranka grupe, bavi se turizmom i ugostiteljstvom na otoku Lošinju u Primorsko-goranskoj županiji. Tvrtka upravlja hotelima, restoranima i rekreacijskim sadržajima namijenjenim zdravstvenom i wellness turizmu.',
+    'Jadroagent d.d. je vodeća hrvatska pomorska agencija sa sjedištem u Rijeci, osnovana 1947. godine. Pruža usluge brodske agenture, otpremništva, multimodalnog transporta i logistike u svim većim hrvatskim lukama, od Pule do Dubrovnika.',
   JDOS:
     'Jadrolinija d.d. je hrvatska državna brodarska kompanija sa sjedištem u Rijeci i najveći operator trajektnog i brodskog prometa na Jadranu. Pokriva linije koje povezuju kopno s jadranskim otocima i međunarodne brodske linije.',
   JDPL:
-    'Jadroplov d.d. je hrvatska brodarska kompanija sa sjedištem u Splitu specijalizirana za međunarodni prijevoz rasutog tereta (bulk carrier segment). Tvrtka upravlja flotom brodova koji plove globalnim pomorskim rutama.',
+    'Jadroplov d.d. je hrvatska brodarska kompanija sa sjedištem u Splitu, osnovana 1947. godine, specijalizirana za međunarodni prijevoz rasutog tereta i tankerske operacije na globalnim pomorskim rutama.',
   KODT:
-    'Končar - Distributivni Transformatori d.d. je specijalizirana tvrtka iz Končar grupe koja proizvodi distribucijske transformatore za elektroenergetski sektor. Izvozi na brojna tržišta u Europi, Aziji i Americi.',
+    'Končar - Distributivni i specijalni transformatori d.d. je tvrtka iz Končar grupe sa sjedištem u Zagrebu koja proizvodi distribucijske i specijalne transformatore do 100 MVA i 170 kV. Izvozi na brojna tržišta u Europi, Aziji i Americi.',
   KODT2:
-    'Končar - Distributivni Transformatori d.d. — povlaštene dionice (iste temeljne poslovne aktivnosti kao redovne dionice KODT). Tvrtka proizvodi distribucijske transformatore i izvozi ih na globalna tržišta.',
+    'Končar - Distributivni i specijalni transformatori d.d. — povlaštene dionice (iste temeljne poslovne aktivnosti kao redovne dionice KODT). Tvrtka je dio Končar grupe i proizvodi distribucijske transformatore za globalno tržište.',
   KOEI:
-    'Končar - Elektroindustrija d.d. je matična holding kompanija Končar grupe, jednog od najvažnijih hrvatskih industrijskih konglomerata. Grupa se bavi razvitkom, projektiranjem i proizvodnjom elektrotehničke opreme, energetskih postrojenja, tračničkih vozila i ICT rješenja.',
+    'Končar - Elektroindustrija d.d. je matična holding kompanija Končar grupe, jednog od najvažnijih hrvatskih industrijskih konglomerata. Grupa se bavi razvojem, projektiranjem i proizvodnjom elektrotehničke opreme, energetskih postrojenja, tračničkih vozila i ICT rješenja.',
   KRAS:
-    'Kraš d.d. je vodeća hrvatska konditorska tvrtka sa sjedištem u Zagrebu poznata po brendovima kao što su Bajadera, Napolitanke, Griotte i Dorina. Izvozi u više od 40 zemalja i jedan je od simbola hrvatske prehrambene industrije.',
+    'Kraš d.d. je vodeća hrvatska konditorska tvrtka sa sjedištem u Zagrebu poznata po brendovima Bajadera, Napolitanke, Griotte i Dorina. Izvozi u više od 40 zemalja s godišnjim prihodima od oko 190 milijuna eura.',
   LKPC:
-    'Luka Ploče d.d. je operator luke Ploče na jugu Hrvatske, jedne od ključnih jadranskih luka za tranzit robe prema Bosni i Hercegovini, Srbiji i ostatku regije. Tvrtka upravlja terminalima za rasuti, generalni i tekući teret.',
+    'Luka Ploče d.d. je operator luke Ploče na jugu Hrvatske, jedne od ključnih jadranskih luka za tranzit robe prema BiH, Srbiji i ostatku regije. Upravlja terminalima za rasuti, generalni i tekući teret.',
   LKRI:
-    'Luka Rijeka d.d. je operator luke Rijeka, najvažnije hrvatske teretne luke i ključnog prometnog čvorišta na sjevernom Jadranu. Upravlja kontejnerskim, ro-ro i generalnim teretnim terminalima u sklopu riječkog lučkog bazena.',
+    'Luka Rijeka d.d. je operator luke Rijeka, najvažnije hrvatske teretne luke i ključnog prometnog čvorišta na sjevernom Jadranu. Upravlja kontejnerskim, ro-ro i generalnim teretnim terminalima.',
   MDKA:
-    'Medika d.d. je vodeći hrvatski veletrgovac farmaceutskim i medicinskim proizvodima sa sjedištem u Zagrebu. Tvrtka distribuira lijekove, medicinska pomagala i zdravstvene preparate ljekarnama, bolnicama i zdravstvenim ustanovama diljem Hrvatske.',
+    'Medika d.d. je vodeći hrvatski veletrgovac farmaceutskim i medicinskim proizvodima sa sjedištem u Zagrebu. Distribuira lijekove, medicinska pomagala i zdravstvene preparate ljekarnama, bolnicama i zdravstvenim ustanovama diljem Hrvatske.',
   MONP:
-    'Mon Perin d.d. je istarska tvrtka sa sjedištem u Balama koja upravlja jednim od najvećih kampova u Hrvatskoj i bavi se agroturizmom. Posjeduje značajan zemljišni fond koji koristi za turizam, maslinarstvo i vinogradarstvo.',
+    'Mon Perin d.d. je istarska turistička tvrtka sa sjedištem u Balama koja upravlja jednim od najvećih kampova u Hrvatskoj i bavi se agroturizmom. Posjeduje značajan zemljišni fond koji koristi za turizam, maslinarstvo i vinogradarstvo.',
   PLAG:
-    'Plava Laguna d.d. je jedna od vodećih turističkih kompanija u Istri sa sjedištem u Poreču, koja upravlja hotelima, kampovima i apartmanskim kompleksima uz obalu. Tvrtka raspolaže kapacitetima od više desetaka tisuća kreveta i posluje po sezonskom modelu.',
+    'Plava Laguna d.d. je jedna od vodećih turističkih kompanija u Istri sa sjedištem u Poreču, s godišnjim prihodima od preko 225 milijuna eura. Upravlja hotelima, kampovima i apartmanskim kompleksima uz obalu.',
   PODR:
-    'Podravka d.d. je vodeća hrvatska prehrambena i farmaceutska kompanija sa sjedištem u Koprivnici, globalno poznata po brendovima Vegeta, Podravka juhe i Dolmio. Tvrtka je prisutna u više od 60 zemalja i jedan je od najjačih izvoznika hrvatskog prehrambenog sektora.',
+    'Podravka d.d. je vodeća hrvatska prehrambena kompanija sa sjedištem u Koprivnici, globalno poznata po brendovima Vegeta, Podravka juhe i Lino. Prisutna je u više od 60 zemalja i jedan je od najjačih izvoznika hrvatskog prehrambenog sektora.',
   RIVP:
-    'Riviera Adria d.d. je turistička kompanija sa sjedištem u Poreču koja upravlja hotelima, kampovima i apartmanskim kompleksima na istarskoj rivijeri. Tvrtka je orijentirana na obiteljski i wellness turizam na sjevernom Jadranu.',
+    'Valamar Riviera d.d. je vodeća hrvatska turistička kompanija sa sjedištem u Poreču koja upravlja s 36 hotela i resorta te 15 kampova u Istri, na otocima Krku, Rabu i Hvaru, Makarskoj, Dubrovniku i Obertauernu u Austriji.',
   SNBA:
-    'Splitska Banka d.d. je regionalna banka sa sjedištem u Splitu koja pruža bankarske usluge pravnim i fizičkim osobama u Dalmaciji i šire. Dio je OTP grupe, jedne od vodećih financijskih grupacija u regiji srednje i istočne Europe.',
+    'Slatinska banka d.d. je komercijalna banka sa sjedištem u Slatini. Pruža bankarske usluge građanima i poduzetnicima uključujući kredite, štednju i tekuće račune u domaćoj i stranoj valuti.',
   SPAN:
-    'SPAN d.d. je hrvatska IT kompanija specijalizirana za upravljane usluge (managed services), cybersigurnost i IT outsourcing za srednje i veće organizacije. Tvrtka je partner vodećih globalnih tehnoloških kompanija i pokriva tržišta regije.',
+    'SPAN d.d. je prva hrvatska IT kompanija uvrštena na Zagrebačku burzu u posljednjih 18 godina. Specijalizirana je za upravljane usluge (managed services), cybersigurnost i IT outsourcing, s prihodima od preko 180 milijuna eura.',
   TKPR:
-    'Tvornica Papira Križ d.d. je hrvatska tvrtka za preradu papira i proizvodnju ambalaže. Tvrtka se bavi preradom papirnih i kartunskih materijala za potrebe prehrambene i logističke industrije.',
+    'Tekstilpromet d.d. je vodeći hrvatski distributer tekstila i sportske odjeće sa sjedištem u Zagrebu, osnovan 1949. Zastupa globalne brendove poput Adidasa, Nikea, File i Speedoa te upravlja maloprodajnom mrežom i veleprodajom.',
   TOK:
-    'Tokić d.d. je hrvatska distribucijska i maloprodajna kompanija koja se bavi prodajom i distribucijom robe široke potrošnje. Tvrtka operira maloprodajnom mrežom i veleprodajnim distributivnim aktivnostima na domaćem tržištu.',
+    'Tokić d.d. je vodeći regionalni distributer autodijelova sa sjedištem u Sesvetama s najgušćom mrežom poslovnica u Hrvatskoj i Sloveniji. Grupa s preko 1.300 zaposlenika nudi dijelove, gume, alate i opremu za sve vrste vozila.',
   ULPL:
-    'Uljanik Plovidba d.d. je hrvatska brodarska kompanija sa sjedištem u Puli specijalizirana za međunarodni prijevoz rasutog tereta. Tvrtka upravlja flotom brodova za prijevoz ruda, ugljena i žitarica na globalnim pomorskim rutama.',
+    'Alpha Adriatic d.d. (bivši Uljanik Plovidba) je hrvatska brodarska kompanija sa sjedištem u Puli specijalizirana za međunarodni prijevoz suhog rasutog tereta i tankerske operacije. Upravlja flotom MR tankera i Supramax bulk carriera.',
   VLEN:
-    'Vetropack Straža d.d. je hrvatska staklana i dio švicarskog Vetropack konzorcija, jednog od vodećih europskih proizvođača staklene ambalaže. Tvrtka proizvodi staklene boce i tegle za prehrambenu i pića industriju.',
+    'Vetropack Straža d.d. je jedini hrvatski proizvođač staklene ambalaže, smješten u Humu na Sutli i dio švicarskog Vetropack koncerna. Proizvodi staklene boce i tegle za prehrambenu industriju i industriju pića.',
   ZABA:
-    'Zagrebačka Banka d.d. (ZABA) je najveća hrvatska banka po ukupnoj aktivi i dio UniCredit grupe. Pruža cjelovit portfelj bankarskih usluga građanima, poduzetnicima i korporativnim klijentima, s najraširenijom poslovnom mrežom u zemlji.',
+    'Zagrebačka Banka d.d. (ZABA) je najveća hrvatska banka po ukupnoj aktivi i dio UniCredit grupe. Pruža cjelovit portfelj bankarskih usluga građanima, poduzetnicima i korporativnim klijentima s najraširenijom poslovnom mrežom u zemlji.',
   ZITO:
-    'Žitnjak d.d. je hrvatska prehrambena kompanija specijalizirana za preradu žitarica, proizvodnju brašna i pekarskih sirovina. Tvrtka opslužuje industrijske i obrtničke pekare te maloprodajni sektor s mlinarskim i konditorskim proizvodima.',
+    'Žito d.d. Osijek je vodeća agroprehrambena grupa u Slavoniji, najveći hrvatski proizvođač jaja, lider u preradi uljarica i drugi po veličini proizvođač svinjetine. Dionice su uvrštene na ZSE 2025. u najvećem domaćem IPO-u privatne tvrtke.',
 };
 
 export function getDescription(ticker: string): string | null {
