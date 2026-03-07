@@ -64,8 +64,8 @@ interface AopMapping {
   field: string;
 }
 
-// Bilanca AOP numbers are the same across all years
-const BILANCA_AOPS: AopMapping[] = [
+// Bilanca AOP numbers — common fields stable across both old and new schemes
+const BILANCA_AOPS_BASE: AopMapping[] = [
   { aop: 2,   field: 'non_current_assets' },
   { aop: 3,   field: 'intangible_assets' },
   { aop: 10,  field: 'tangible_assets' },
@@ -75,12 +75,27 @@ const BILANCA_AOPS: AopMapping[] = [
   { aop: 53,  field: 'current_financial_assets' },
   { aop: 63,  field: 'cash' },
   { aop: 65,  field: 'total_assets' },
-  { aop: 67,  field: 'equity' },
+  { aop: 67,  field: 'equity' },   // total equity (parent + minority) — same AOP in both schemes
   { aop: 68,  field: 'share_capital' },
+  { aop: 109, field: 'current_liabilities' },
+];
+
+// NEW bilanca scheme (2021+): minority interest at AOP 089, provisions at AOP 090
+const BILANCA_AOPS_NEW: AopMapping[] = [
+  ...BILANCA_AOPS_BASE,
   { aop: 83,  field: 'retained_earnings' },
+  { aop: 89,  field: 'minority_equity' }, // VIII. MANJINSKI INTERES
   { aop: 90,  field: 'provisions' },
   { aop: 97,  field: 'long_term_liabilities' },
-  { aop: 109, field: 'current_liabilities' },
+];
+
+// OLD bilanca scheme (pre-2021): minority interest at AOP 087, provisions at AOP 088
+const BILANCA_AOPS_OLD: AopMapping[] = [
+  ...BILANCA_AOPS_BASE,
+  { aop: 81,  field: 'retained_earnings' }, // VI. ZADRŽANA DOBIT (aggregate)
+  { aop: 87,  field: 'minority_equity' }, // VIII. MANJINSKI INTERES
+  { aop: 88,  field: 'provisions' },
+  { aop: 95,  field: 'long_term_liabilities' },
 ];
 
 // NEW RDG AOP scheme (2021+)
@@ -95,7 +110,8 @@ const RDG_AOPS_NEW: AopMapping[] = [
   { aop: 41,  field: 'financial_expenses' },
   { aop: 55,  field: 'profit_before_tax' },
   { aop: 58,  field: 'income_tax' },
-  { aop: 59,  field: 'net_profit' },
+  { aop: 59,  field: 'net_profit' },      // total group profit (incl. minority)
+  { aop: 76,  field: 'net_profit_parent' }, // profit attributable to parent (imatelji kapitala matice)
 ];
 
 // OLD RDG AOP scheme (2019-2020)
@@ -110,7 +126,8 @@ const RDG_AOPS_OLD: AopMapping[] = [
   { aop: 165, field: 'financial_expenses' },
   { aop: 180, field: 'profit_before_tax' },
   { aop: 182, field: 'income_tax' },
-  { aop: 183, field: 'net_profit' },
+  { aop: 183, field: 'net_profit' },       // total group profit (incl. minority)
+  { aop: 200, field: 'net_profit_parent' }, // profit attributable to parent (imatelji kapitala matice)
 ];
 
 // NEW NT_D AOP scheme (2021+)
@@ -271,6 +288,7 @@ export async function scrapeXlsx(
 
   const rdgAops = aopScheme === 'old' ? RDG_AOPS_OLD : RDG_AOPS_NEW;
   const ntdAops = aopScheme === 'old' ? NT_D_AOPS_OLD : NT_D_AOPS_NEW;
+  const bilancaAops = aopScheme === 'old' ? BILANCA_AOPS_OLD : BILANCA_AOPS_NEW;
 
   console.log(`[xlsx] Year: ${year}, Currency: ${currency}, AOP scheme: ${aopScheme}`);
 
@@ -282,7 +300,7 @@ export async function scrapeXlsx(
 
     // Bilanca: AOP in col 6, prev=col 7, curr=col 8
     const bilancaValueCol = yearOffset === 0 ? 8 : 7;
-    let bilanca = extractAopValues(bilancaRows, BILANCA_AOPS, 6, bilancaValueCol);
+    let bilanca = extractAopValues(bilancaRows, bilancaAops, 6, bilancaValueCol);
 
     // RDG: AOP in col 6, prev cumul=col 7, curr cumul=col 9
     const rdgValueCol = yearOffset === 0 ? 9 : 7;
@@ -305,8 +323,14 @@ export async function scrapeXlsx(
     const revenue = rdg.revenue as number | null;
     const opExpenses = rdg.operating_expenses as number | null;
     const depreciation = rdg.depreciation as number | null;
-    const netProfit = rdg.net_profit as number | null;
-    const equityVal = bilanca.equity as number | null;
+    // For consolidated (TFI-POD): use profit attributable to parent shareholders (AOP 60/184).
+    // For individual (GFI-POD): net_profit_parent is null → fall back to net_profit (AOP 59/183).
+    const netProfit = (rdg.net_profit_parent as number | null) ?? (rdg.net_profit as number | null);
+    // For consolidated: equity = parent equity only (total equity minus minority interest AOP 85).
+    // For individual: minority_equity is null → equity stays as total.
+    const totalEquity = bilanca.equity as number | null;
+    const minorityEquity = bilanca.minority_equity as number | null;
+    const equityVal = totalEquity !== null ? totalEquity - (minorityEquity ?? 0) : null;
     const totalAssets = bilanca.total_assets as number | null;
     const currentLiab = bilanca.current_liabilities as number | null;
     const currentAssets = bilanca.current_assets as number | null;
@@ -393,6 +417,7 @@ const FLOW_FIELDS = [
   'revenue', 'other_operating_income', 'material_costs', 'personnel_costs',
   'depreciation', 'operating_expenses', 'financial_income',
   'financial_expenses', 'profit_before_tax', 'income_tax', 'net_profit',
+  'net_profit_parent', // also de-cumulate parent-only profit for quarterly standalone
   'operating_cash_flow', 'investing_cash_flow', 'capex', 'financing_cash_flow',
   'dividends_paid',
 ];
@@ -448,9 +473,10 @@ async function extractRawFromXlsx(
 
   const rdgAops = aopScheme === 'old' ? RDG_AOPS_OLD : RDG_AOPS_NEW;
   const ntdAops = aopScheme === 'old' ? NT_D_AOPS_OLD : NT_D_AOPS_NEW;
+  const bilancaAops = aopScheme === 'old' ? BILANCA_AOPS_OLD : BILANCA_AOPS_NEW;
 
   // Current period only (yearOffset=0)
-  let bilanca = extractAopValues(bilancaRows, BILANCA_AOPS, 6, 8);
+  let bilanca = extractAopValues(bilancaRows, bilancaAops, 6, 8);
   let rdg = extractAopValues(rdgRows, rdgAops, 6, 9);
   let ntd = ntdRows.length > 0
     ? extractAopValues(ntdRows, ntdAops, 6, 8)
@@ -481,8 +507,12 @@ function buildFinancialRecord(
   const revenue = rdg.revenue as number | null;
   const opExpenses = rdg.operating_expenses as number | null;
   const depreciation = rdg.depreciation as number | null;
-  const netProfit = rdg.net_profit as number | null;
-  const equityVal = bilanca.equity as number | null;
+  // For consolidated (TFI-POD): use profit attributable to parent shareholders (AOP 60/184).
+  const netProfit = (rdg.net_profit_parent as number | null) ?? (rdg.net_profit as number | null);
+  // For consolidated: equity = parent equity only (total equity minus minority interest AOP 85).
+  const totalEquity = bilanca.equity as number | null;
+  const minorityEquity = bilanca.minority_equity as number | null;
+  const equityVal = totalEquity !== null ? totalEquity - (minorityEquity ?? 0) : null;
   const totalAssets = bilanca.total_assets as number | null;
   const currentLiab = bilanca.current_liabilities as number | null;
   const currentAssets = bilanca.current_assets as number | null;
@@ -650,6 +680,9 @@ export async function scrapeQuarterlyXlsx(
         fyRdg[field] = typeof val === 'number' ? val : null;
       }
     }
+    // fyData.net_profit already stores parent's share (our fixed value).
+    // Bridge it to net_profit_parent so Q4 de-cumulation subtracts the right baseline.
+    fyRdg['net_profit_parent'] = fyRdg['net_profit'];
 
     // For capex: fyData stores absolute value but cumulative may be signed — handle both
     const bilanca: Record<string, number | null> = {};
