@@ -6,6 +6,7 @@ const HRK_TO_EUR = 7.5345;
 export interface XlsxFinancialData {
   ticker: string;
   year: number;
+  period: string;       // 'FY' | 'Q1' | 'Q2' | 'Q3' | 'Q4'
   source: string;       // 'xlsx'
   report_type: string;  // 'TFI-POD' | 'GFI-POD'
 
@@ -327,6 +328,7 @@ export async function scrapeXlsx(
     results.push({
       ticker,
       year: yr,
+      period: 'FY',
       source: 'xlsx',
       report_type: reportType,
 
@@ -378,6 +380,294 @@ export async function scrapeXlsx(
       current_ratio: currentRatio,
       eps,
     });
+  }
+
+  return results;
+}
+
+// --- Quarterly scraping support ---
+
+// Flow fields (RDG + cash flow) that need de-cumulation.
+// Balance sheet fields are point-in-time snapshots — no de-cumulation needed.
+const FLOW_FIELDS = [
+  'revenue', 'other_operating_income', 'material_costs', 'personnel_costs',
+  'depreciation', 'operating_expenses', 'financial_income',
+  'financial_expenses', 'profit_before_tax', 'income_tax', 'net_profit',
+  'operating_cash_flow', 'investing_cash_flow', 'capex', 'financing_cash_flow',
+  'dividends_paid',
+];
+
+export { FLOW_FIELDS };
+
+/**
+ * Extract raw (cumulative) data from a single XLSX report without computing derived metrics.
+ * Returns the raw field values for the current period (yearOffset=0) only.
+ */
+async function extractRawFromXlsx(
+  xlsxUrl: string,
+  ticker: string,
+  reportType: string,
+): Promise<{
+  year: number;
+  bilanca: Record<string, number | null>;
+  rdg: Record<string, number | null>;
+  ntd: Record<string, number | null>;
+  isHrk: boolean;
+} | null> {
+  console.log(`[xlsx-q] Fetching ${xlsxUrl}`);
+  const res = await fetch(xlsxUrl, {
+    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+  });
+  if (!res.ok) {
+    console.error(`[xlsx-q] HTTP ${res.status} for ${xlsxUrl}`);
+    return null;
+  }
+
+  const buf = await res.arrayBuffer();
+  const wb = XLSX.read(new Uint8Array(buf), { type: 'array' });
+
+  const bilancaWs = findSheet(wb, 'Bilanca');
+  const rdgWs = findSheet(wb, 'RDG');
+  const ntdWs = findSheet(wb, 'NT_D', 'NT-D', 'Novčani tok');
+
+  if (!bilancaWs || !rdgWs) {
+    console.error('[xlsx-q] Missing Bilanca or RDG sheet');
+    return null;
+  }
+
+  const bilancaRows = XLSX.utils.sheet_to_json(bilancaWs, { header: 1, defval: '' }) as unknown[][];
+  const rdgRows = XLSX.utils.sheet_to_json(rdgWs, { header: 1, defval: '' }) as unknown[][];
+  const ntdRows = ntdWs
+    ? (XLSX.utils.sheet_to_json(ntdWs, { header: 1, defval: '' }) as unknown[][])
+    : [];
+
+  const year = detectYear(bilancaRows);
+  const currency = detectCurrency(bilancaRows);
+  const aopScheme = detectAopScheme(rdgRows);
+  const isHrk = currency === 'HRK';
+
+  const rdgAops = aopScheme === 'old' ? RDG_AOPS_OLD : RDG_AOPS_NEW;
+  const ntdAops = aopScheme === 'old' ? NT_D_AOPS_OLD : NT_D_AOPS_NEW;
+
+  // Current period only (yearOffset=0)
+  let bilanca = extractAopValues(bilancaRows, BILANCA_AOPS, 6, 8);
+  let rdg = extractAopValues(rdgRows, rdgAops, 6, 9);
+  let ntd = ntdRows.length > 0
+    ? extractAopValues(ntdRows, ntdAops, 6, 8)
+    : { operating_cash_flow: null, capex: null, investing_cash_flow: null, dividends_paid: null, financing_cash_flow: null };
+
+  if (isHrk) {
+    bilanca = convertToEur(bilanca);
+    rdg = convertToEur(rdg);
+    ntd = convertToEur(ntd);
+  }
+
+  return { year, bilanca, rdg, ntd, isHrk };
+}
+
+/**
+ * Build an XlsxFinancialData record from raw field values.
+ */
+function buildFinancialRecord(
+  ticker: string,
+  year: number,
+  period: string,
+  reportType: string,
+  bilanca: Record<string, number | null>,
+  rdg: Record<string, number | null>,
+  ntd: Record<string, number | null>,
+  sharesOutstanding: number | null,
+): XlsxFinancialData {
+  const revenue = rdg.revenue as number | null;
+  const opExpenses = rdg.operating_expenses as number | null;
+  const depreciation = rdg.depreciation as number | null;
+  const netProfit = rdg.net_profit as number | null;
+  const equityVal = bilanca.equity as number | null;
+  const totalAssets = bilanca.total_assets as number | null;
+  const currentLiab = bilanca.current_liabilities as number | null;
+  const currentAssets = bilanca.current_assets as number | null;
+  const ocf = ntd.operating_cash_flow as number | null;
+  const capexVal = ntd.capex as number | null;
+
+  const ebit = revenue !== null && opExpenses !== null ? revenue - opExpenses : null;
+  const ebitda = ebit !== null ? ebit + (depreciation ?? 0) : null;
+  const fcf = ocf !== null && capexVal !== null ? ocf - Math.abs(capexVal) : null;
+  const netMargin = revenue && netProfit !== null && revenue !== 0 ? (netProfit / revenue) * 100 : null;
+  const roe = equityVal && netProfit !== null && equityVal !== 0 ? (netProfit / equityVal) * 100 : null;
+  const roce = ebit !== null && totalAssets !== null && currentLiab !== null && (totalAssets - currentLiab) !== 0
+    ? (ebit / (totalAssets - currentLiab)) * 100 : null;
+  const currentRatio = currentAssets !== null && currentLiab && currentLiab !== 0
+    ? currentAssets / currentLiab : null;
+  const eps = netProfit !== null && sharesOutstanding && sharesOutstanding !== 0
+    ? netProfit / sharesOutstanding : null;
+
+  return {
+    ticker,
+    year,
+    period,
+    source: 'xlsx',
+    report_type: reportType,
+    non_current_assets: bilanca.non_current_assets as number | null,
+    intangible_assets: bilanca.intangible_assets as number | null,
+    tangible_assets: bilanca.tangible_assets as number | null,
+    current_assets: currentAssets,
+    inventories: bilanca.inventories as number | null,
+    receivables: bilanca.receivables as number | null,
+    current_financial_assets: bilanca.current_financial_assets as number | null,
+    cash: bilanca.cash as number | null,
+    total_assets: totalAssets,
+    share_capital: bilanca.share_capital as number | null,
+    retained_earnings: bilanca.retained_earnings as number | null,
+    equity: equityVal,
+    provisions: bilanca.provisions as number | null,
+    long_term_liabilities: bilanca.long_term_liabilities as number | null,
+    current_liabilities: currentLiab,
+    revenue,
+    other_operating_income: rdg.other_operating_income as number | null,
+    material_costs: rdg.material_costs as number | null,
+    personnel_costs: rdg.personnel_costs as number | null,
+    depreciation,
+    operating_expenses: opExpenses,
+    operating_profit: ebit,
+    financial_income: rdg.financial_income as number | null,
+    financial_expenses: rdg.financial_expenses as number | null,
+    profit_before_tax: rdg.profit_before_tax as number | null,
+    income_tax: rdg.income_tax as number | null,
+    net_profit: netProfit,
+    operating_cash_flow: ocf,
+    investing_cash_flow: ntd.investing_cash_flow as number | null,
+    capex: capexVal !== null ? Math.abs(capexVal) : null,
+    financing_cash_flow: ntd.financing_cash_flow as number | null,
+    dividends_paid: ntd.dividends_paid as number | null,
+    ebit,
+    ebitda,
+    free_cash_flow: fcf,
+    net_margin: netMargin,
+    roe,
+    roce,
+    current_ratio: currentRatio,
+    eps,
+  };
+}
+
+/**
+ * De-cumulate flow fields: standalone = cumulative - previousCumulative.
+ * Balance sheet fields are left as-is (point-in-time snapshots).
+ */
+function deCumulateFlow(
+  cumulative: Record<string, number | null>,
+  previousCumulative: Record<string, number | null>,
+): Record<string, number | null> {
+  const result = { ...cumulative };
+  for (const field of FLOW_FIELDS) {
+    const curr = cumulative[field];
+    const prev = previousCumulative[field];
+    if (curr !== null && prev !== null) {
+      result[field] = curr - prev;
+    }
+  }
+  return result;
+}
+
+export interface QuarterUrl {
+  quarter: 'Q1' | 'Q2' | 'Q3';
+  url: string;
+}
+
+/**
+ * Scrape quarterly TFI-POD reports for a single year and produce standalone quarter data.
+ *
+ * @param quarterUrls - Q1, Q2, Q3 cumulative report URLs (sorted by quarter)
+ * @param fyData - Full-year (FY) data for this year (used to compute Q4 = FY - Q3_cum)
+ * @param ticker - Stock ticker
+ * @param reportType - e.g. 'TFI-POD'
+ * @param sharesOutstanding - For EPS calculation
+ * @returns Array of standalone quarterly XlsxFinancialData records (Q1-Q4)
+ */
+export async function scrapeQuarterlyXlsx(
+  quarterUrls: QuarterUrl[],
+  fyData: XlsxFinancialData,
+  ticker: string,
+  reportType: string,
+  sharesOutstanding: number | null,
+): Promise<XlsxFinancialData[]> {
+  const results: XlsxFinancialData[] = [];
+
+  // Extract cumulative data from each quarterly report
+  const cumulativeData: Record<string, {
+    bilanca: Record<string, number | null>;
+    rdg: Record<string, number | null>;
+    ntd: Record<string, number | null>;
+  }> = {};
+
+  for (const { quarter, url } of quarterUrls) {
+    const raw = await extractRawFromXlsx(url, ticker, reportType);
+    if (!raw) {
+      console.error(`[xlsx-q] Failed to extract ${quarter} from ${url}`);
+      continue;
+    }
+    cumulativeData[quarter] = { bilanca: raw.bilanca, rdg: raw.rdg, ntd: raw.ntd };
+    console.log(`[xlsx-q] Extracted cumulative ${quarter} ${raw.year}`);
+  }
+
+  // Q1: standalone = cumulative (no subtraction needed)
+  if (cumulativeData['Q1']) {
+    const { bilanca, rdg, ntd } = cumulativeData['Q1'];
+    results.push(buildFinancialRecord(ticker, fyData.year, 'Q1', reportType, bilanca, rdg, ntd, sharesOutstanding));
+    console.log(`[xlsx-q] Q1 standalone OK`);
+  }
+
+  // Q2: standalone = Q2_cum - Q1_cum
+  if (cumulativeData['Q2'] && cumulativeData['Q1']) {
+    const { bilanca } = cumulativeData['Q2'];
+    const rdg = deCumulateFlow(cumulativeData['Q2'].rdg, cumulativeData['Q1'].rdg);
+    const ntd = deCumulateFlow(cumulativeData['Q2'].ntd, cumulativeData['Q1'].ntd);
+    results.push(buildFinancialRecord(ticker, fyData.year, 'Q2', reportType, bilanca, rdg, ntd, sharesOutstanding));
+    console.log(`[xlsx-q] Q2 standalone OK`);
+  }
+
+  // Q3: standalone = Q3_cum - Q2_cum
+  if (cumulativeData['Q3'] && cumulativeData['Q2']) {
+    const { bilanca } = cumulativeData['Q3'];
+    const rdg = deCumulateFlow(cumulativeData['Q3'].rdg, cumulativeData['Q2'].rdg);
+    const ntd = deCumulateFlow(cumulativeData['Q3'].ntd, cumulativeData['Q2'].ntd);
+    results.push(buildFinancialRecord(ticker, fyData.year, 'Q3', reportType, bilanca, rdg, ntd, sharesOutstanding));
+    console.log(`[xlsx-q] Q3 standalone OK`);
+  }
+
+  // Q4: standalone = FY - Q3_cum (use fyData for FY values)
+  if (cumulativeData['Q3']) {
+    const q3cum = cumulativeData['Q3'];
+    // Build FY flow fields from fyData
+    const fyRdg: Record<string, number | null> = {};
+    const fyNtd: Record<string, number | null> = {};
+    for (const field of FLOW_FIELDS) {
+      const val = (fyData as unknown as Record<string, unknown>)[field];
+      // Classify into rdg or ntd based on field name
+      if (['operating_cash_flow', 'investing_cash_flow', 'capex', 'financing_cash_flow', 'dividends_paid'].includes(field)) {
+        fyNtd[field] = typeof val === 'number' ? val : null;
+      } else {
+        fyRdg[field] = typeof val === 'number' ? val : null;
+      }
+    }
+
+    // For capex: fyData stores absolute value but cumulative may be signed — handle both
+    const bilanca: Record<string, number | null> = {};
+    const bilancaFields = [
+      'non_current_assets', 'intangible_assets', 'tangible_assets', 'current_assets',
+      'inventories', 'receivables', 'current_financial_assets', 'cash', 'total_assets',
+      'share_capital', 'retained_earnings', 'equity', 'provisions',
+      'long_term_liabilities', 'current_liabilities',
+    ];
+    for (const field of bilancaFields) {
+      const val = (fyData as unknown as Record<string, unknown>)[field];
+      bilanca[field] = typeof val === 'number' ? val : null;
+    }
+
+    const rdg = deCumulateFlow(fyRdg, q3cum.rdg);
+    const ntd = deCumulateFlow(fyNtd, q3cum.ntd);
+    results.push(buildFinancialRecord(ticker, fyData.year, 'Q4', reportType, bilanca, rdg, ntd, sharesOutstanding));
+    console.log(`[xlsx-q] Q4 standalone OK (FY - Q3_cum)`);
   }
 
   return results;

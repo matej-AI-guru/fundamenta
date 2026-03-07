@@ -6,6 +6,7 @@ import { getDescription } from '@/lib/descriptions';
 import { computeDetailedScore } from '@/lib/score';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import type { Stock, StockFinancials, PriceHistory } from '@/lib/supabase';
+import { computeTTM, getLast4Quarters } from '@/lib/ttm';
 import StockPageClient from './StockPageClient';
 
 export const revalidate = 3600; // ISR — rebuild every hour
@@ -78,20 +79,39 @@ export default async function StockPage({
 
   const supabase = getSupabaseAdmin();
 
-  const [{ data: stock }, { data: allStocks }, { data: financials }, { data: priceHistoryRaw }] = await Promise.all([
+  const [{ data: stock }, { data: allStocks }, { data: financials }, { data: quarterlyFinancials }, { data: priceHistoryRaw }] = await Promise.all([
     supabase.from('stocks').select('*').eq('ticker', ticker).single(),
     supabase.from('stocks').select('*').order('market_cap', { ascending: false }),
     supabase
       .from('stock_financials')
       .select('*')
       .eq('ticker', ticker)
+      .eq('period', 'FY')
       .order('year', { ascending: true }),
+    supabase
+      .from('stock_financials')
+      .select('*')
+      .eq('ticker', ticker)
+      .neq('period', 'FY')
+      .order('year', { ascending: true })
+      .order('period', { ascending: true }),
     supabase
       .from('price_history')
       .select('id,ticker,date,price,created_at')
       .eq('ticker', ticker)
       .order('date', { ascending: true }),
   ]);
+
+  // Compute TTM from last 4 standalone quarters
+  const allQuarters = (quarterlyFinancials ?? []) as StockFinancials[];
+  const last4 = getLast4Quarters(allQuarters);
+  const ttm = last4.length === 4 ? computeTTM(last4) : null;
+
+  // Set TTM EPS if shares_outstanding is known
+  if (ttm && stock?.shares_outstanding) {
+    (ttm as Record<string, unknown>).eps =
+      ttm.net_profit !== null ? ttm.net_profit / stock.shares_outstanding : null;
+  }
 
   if (!stock || !allStocks) notFound();
 
@@ -129,6 +149,8 @@ export default async function StockPage({
       <StockPageClient
         stock={stock}
         financials={(financials ?? []) as StockFinancials[]}
+        quarterlyFinancials={allQuarters}
+        ttm={ttm}
         scores={scores}
         sector={sector}
         similarStocks={similarStocks}

@@ -23,6 +23,8 @@ interface Scores {
 interface Props {
   stock: Stock;
   financials: StockFinancials[];
+  quarterlyFinancials: StockFinancials[];
+  ttm: StockFinancials | null;
   scores: Scores;
   sector: string;
   similarStocks: Stock[];
@@ -239,10 +241,12 @@ function formatCell(v: number | null, format: TableRow['format']): string {
 // Main component
 // ---------------------------------------------------------------------------
 export default function StockPageClient({
-  stock, financials, scores, sector, similarStocks, zseMedians, sectorMedians, description, sifSim, priceHistory,
+  stock, financials, quarterlyFinancials, ttm, scores, sector, similarStocks, zseMedians, sectorMedians, description, sifSim, priceHistory,
 }: Props) {
   const [chartView, setChartView] = useState<'revenue' | 'profitability' | 'cashflow'>('revenue');
   const [tableTab, setTableTab] = useState<'rdg' | 'bilanca' | 'cf'>('rdg');
+  const [viewMode, setViewMode] = useState<'annual' | 'quarterly'>('annual');
+  const hasQuarterly = quarterlyFinancials.length > 0;
 
   const years = financials.map(f => f.year);
   const nYears = years.length > 1 ? years[years.length - 1] - years[0] : 0;
@@ -261,11 +265,101 @@ export default function StockPageClient({
     capex:     f.capex !== null ? -f.capex : null,
   }));
 
+  // Quarter label helper
+  const qLabel = (f: StockFinancials) => `${f.period} '${String(f.year).slice(-2)}`;
+
+  // Quarterly chart data (chronological order, TTM appended if available)
+  const quarterlyChartData = [
+    ...quarterlyFinancials.map(f => ({
+      year: qLabel(f),
+      prihod:    f.revenue,
+      ebitda:    f.ebitda,
+      netoDobit: f.net_profit,
+      netoMarza: f.net_margin,
+      roe:       f.roe,
+      roce:      f.roce,
+      ocf:       f.operating_cash_flow,
+      fcf:       f.free_cash_flow,
+      capex:     f.capex !== null ? -f.capex : null,
+    })),
+    ...(ttm ? [{
+      year: 'TTM',
+      prihod:    ttm.revenue,
+      ebitda:    ttm.ebitda,
+      netoDobit: ttm.net_profit,
+      netoMarza: ttm.net_margin,
+      roe:       ttm.roe,
+      roce:      ttm.roce,
+      ocf:       ttm.operating_cash_flow,
+      fcf:       ttm.free_cash_flow,
+      capex:     ttm.capex !== null ? -ttm.capex : null,
+    }] : []),
+  ];
+
+  // Quarterly table data: columns are TTM (if available) + quarters (newest first)
+  const qTableSources = [
+    ...(ttm ? [ttm] : []),
+    ...[...quarterlyFinancials].reverse(),
+  ];
+  const qTableHeaders = qTableSources.map(f => f.period === 'TTM' ? 'TTM' : qLabel(f));
+
+  // Quarterly table rows
+  const qRdgRows: TableRow[] = [
+    { label: 'Prihod',     values: qTableSources.map(f => f.revenue),    format: 'currency', bold: true },
+    { label: 'EBITDA',     values: qTableSources.map(f => f.ebitda),     format: 'currency' },
+    { label: 'EBIT',       values: qTableSources.map(f => f.ebit),       format: 'currency' },
+    { label: 'Amortizacija', values: qTableSources.map(f => f.depreciation), format: 'currency' },
+    { label: 'Neto dobit', values: qTableSources.map(f => f.net_profit), format: 'currency', bold: true },
+    { label: '', values: [], format: 'plain', separator: true },
+    { label: 'EPS',        values: qTableSources.map(f => f.eps),        format: 'plain' },
+    { label: 'Neto marža', values: qTableSources.map(f => f.net_margin), format: 'pct' },
+  ];
+  const qBilancaRows: TableRow[] = [
+    { label: 'Ukupna aktiva',      values: qTableSources.map(f => f.total_assets),    format: 'currency', bold: true },
+    { label: 'Kratkotrajna imovina', values: qTableSources.map(f => f.current_assets), format: 'currency' },
+    { label: 'Kratk. fin. imovina', values: qTableSources.map(f => f.current_financial_assets), format: 'currency' },
+    { label: 'Novac',              values: qTableSources.map(f => f.cash),            format: 'currency' },
+    { label: '', values: [], format: 'plain', separator: true },
+    { label: 'Kapital',            values: qTableSources.map(f => f.equity),          format: 'currency', bold: true },
+    { label: 'Dugoročne obveze',   values: qTableSources.map(f => f.long_term_liabilities), format: 'currency' },
+    { label: 'Kratkoročne obveze', values: qTableSources.map(f => f.current_liabilities), format: 'currency' },
+    { label: '', values: [], format: 'plain', separator: true },
+    { label: 'Tekuća likvidnost',  values: qTableSources.map(f => f.current_ratio),  format: 'ratio' },
+    { label: 'ROE',                values: qTableSources.map(f => f.roe),             format: 'pct' },
+  ];
+  const qCfRows: TableRow[] = [
+    { label: 'Operativni CF',      values: qTableSources.map(f => f.operating_cash_flow), format: 'currency', bold: true },
+    { label: 'CapEx',              values: qTableSources.map(f => f.capex !== null ? -f.capex : null), format: 'currency' },
+    { label: 'Slobodni CF (FCF)',  values: qTableSources.map(f => f.free_cash_flow),      format: 'currency', bold: true },
+    { label: '', values: [], format: 'plain', separator: true },
+    { label: 'ROCE',               values: qTableSources.map(f => f.roce),               format: 'pct' },
+  ];
+
+  // Active data depends on viewMode
+  const activeChartData = viewMode === 'quarterly' ? quarterlyChartData : chartData;
+
+  // EV approximation (needed before TTM valuation)
+  const evApproxEarly = stock.market_cap !== null
+    ? stock.market_cap + (stock.long_term_liabilities ?? 0) - (stock.cash ?? 0)
+    : null;
+
+  // TTM-based valuation ratios
+  const ttmPe = ttm && ttm.net_profit && stock.market_cap
+    ? stock.market_cap / ttm.net_profit : null;
+  const ttmPs = ttm && ttm.revenue && stock.market_cap
+    ? stock.market_cap / ttm.revenue : null;
+  const ttmPfcf = ttm && ttm.free_cash_flow && stock.market_cap && ttm.free_cash_flow > 0
+    ? stock.market_cap / ttm.free_cash_flow : null;
+  const ttmEvEbitda = ttm && ttm.ebitda && ttm.ebitda > 0 && evApproxEarly !== null
+    ? evApproxEarly / ttm.ebitda : null;
+  const ttmEarningsYield = ttmPe && ttmPe > 0 ? (1 / ttmPe) * 100 : null;
+  const useTTM = ttm !== null;
+
   // Valuation metrics for dashboard
   const valMetrics = [
     {
-      label: 'P/E',      dbKey: 'pe_ratio',
-      value: stock.pe_ratio,      unit: 'x',
+      label: useTTM ? 'P/E (TTM)' : 'P/E',      dbKey: 'pe_ratio',
+      value: useTTM ? ttmPe : stock.pe_ratio,      unit: 'x',
       median: zseMedians.pe_ratio, lowerIsBetter: true,
       description: 'Cijena / Zarada po dionici',
     },
@@ -276,26 +370,26 @@ export default function StockPageClient({
       description: 'Cijena / Knjigovodstvena vrijednost',
     },
     {
-      label: 'EV/EBITDA', dbKey: 'ev_ebitda',
-      value: stock.ev_ebitda,     unit: 'x',
+      label: useTTM ? 'EV/EBITDA (TTM)' : 'EV/EBITDA', dbKey: 'ev_ebitda',
+      value: useTTM ? ttmEvEbitda : stock.ev_ebitda,     unit: 'x',
       median: zseMedians.ev_ebitda, lowerIsBetter: true,
       description: 'Vrijednost poduzeća / EBITDA',
     },
     {
-      label: 'P/S',      dbKey: 'ps_ratio',
-      value: stock.ps_ratio,      unit: 'x',
+      label: useTTM ? 'P/S (TTM)' : 'P/S',      dbKey: 'ps_ratio',
+      value: useTTM ? ttmPs : stock.ps_ratio,      unit: 'x',
       median: zseMedians.ps_ratio, lowerIsBetter: true,
       description: 'Cijena / Prihod po dionici',
     },
     {
-      label: 'P/FCF',    dbKey: 'pfcf_ratio',
-      value: stock.pfcf_ratio,    unit: 'x',
+      label: useTTM ? 'P/FCF (TTM)' : 'P/FCF',    dbKey: 'pfcf_ratio',
+      value: useTTM ? ttmPfcf : stock.pfcf_ratio,    unit: 'x',
       median: zseMedians.pfcf_ratio, lowerIsBetter: true,
       description: 'Cijena / Slobodni novčani tok po dionici',
     },
     {
-      label: 'Prinos od zarade', dbKey: 'earnings_yield',
-      value: stock.earnings_yield, unit: '%',
+      label: useTTM ? 'Prinos od zarade (TTM)' : 'Prinos od zarade', dbKey: 'earnings_yield',
+      value: useTTM ? ttmEarningsYield : stock.earnings_yield, unit: '%',
       median: zseMedians.earnings_yield, lowerIsBetter: false,
       description: '1 / P/E × 100% (koliko zaradiš po EUR uloženom)',
     },
@@ -366,7 +460,9 @@ export default function StockPageClient({
     { label: 'ROCE',               values: financials.map(f => f.roce),               format: 'pct' },
   ];
 
-  const activeRows = tableTab === 'rdg' ? rdgRows : tableTab === 'bilanca' ? bilancaRows : cfRows;
+  const activeRows = viewMode === 'quarterly'
+    ? (tableTab === 'rdg' ? qRdgRows : tableTab === 'bilanca' ? qBilancaRows : qCfRows)
+    : (tableTab === 'rdg' ? rdgRows : tableTab === 'bilanca' ? bilancaRows : cfRows);
 
   const highlightRows: Record<string, string[]> = {
     rdg:     ['Prihod', 'Neto dobit', 'EPS'],
@@ -796,8 +892,31 @@ export default function StockPageClient({
         <section id="financije" style={{ scrollMarginTop: '80px' }} className="pb-6">
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
-              <h2 className="text-lg font-bold text-gray-900">Financijski pregled</h2>
-              {/* Toggle */}
+              <div className="flex items-center gap-3">
+                <h2 className="text-lg font-bold text-gray-900">Financijski pregled</h2>
+                {/* Annual / Quarterly toggle */}
+                {hasQuarterly && (
+                  <div className="flex gap-0.5 bg-gray-100 rounded-lg p-0.5">
+                    {([
+                      { id: 'annual' as const, label: 'Godišnje' },
+                      { id: 'quarterly' as const, label: 'Kvartalno' },
+                    ] as const).map(v => (
+                      <button
+                        key={v.id}
+                        onClick={() => setViewMode(v.id)}
+                        className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-all ${
+                          viewMode === v.id
+                            ? 'bg-white shadow-sm text-gray-900'
+                            : 'text-gray-500 hover:text-gray-700'
+                        }`}
+                      >
+                        {v.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {/* Chart type toggle */}
               <div className="flex gap-0.5 bg-gray-50 rounded-lg p-0.5 self-start sm:self-auto">
                 {([
                   { id: 'revenue'       as const, label: 'Prihod'        },
@@ -839,7 +958,7 @@ export default function StockPageClient({
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 {chartView === 'revenue' ? (
-                  <ComposedChart data={chartData} margin={{ top: 5, right: 10, bottom: 0, left: 0 }}>
+                  <ComposedChart data={activeChartData} margin={{ top: 5, right: 10, bottom: 0, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                     <XAxis dataKey="year" tick={{ fontSize: 11 }} axisLine={{ stroke: '#e5e7eb' }} tickLine={false} />
                     <YAxis yAxisId="left" tick={{ fontSize: 11 }} tickFormatter={fmtLarge} width={55} axisLine={false} tickLine={false} />
@@ -853,7 +972,7 @@ export default function StockPageClient({
                     <Line yAxisId="right" dataKey="netoDobit" name="Neto dobit" stroke="#10b981" strokeWidth={2} dot={{ r: 3, fill: '#10b981', stroke: 'white', strokeWidth: 2 }} />
                   </ComposedChart>
                 ) : chartView === 'profitability' ? (
-                  <ComposedChart data={chartData} margin={{ top: 5, right: 5, bottom: 0, left: 0 }}>
+                  <ComposedChart data={activeChartData} margin={{ top: 5, right: 5, bottom: 0, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                     <XAxis dataKey="year" tick={{ fontSize: 11 }} />
                     <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `${v.toFixed(1)}%`} width={55} />
@@ -864,7 +983,7 @@ export default function StockPageClient({
                     <Line dataKey="roce"      name="ROCE"       stroke="#16a34a" strokeWidth={2} dot={{ r: 3 }} />
                   </ComposedChart>
                 ) : (
-                  <ComposedChart data={chartData} margin={{ top: 5, right: 5, bottom: 0, left: 0 }}>
+                  <ComposedChart data={activeChartData} margin={{ top: 5, right: 5, bottom: 0, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                     <XAxis dataKey="year" tick={{ fontSize: 11 }} />
                     <YAxis tick={{ fontSize: 11 }} tickFormatter={fmtLarge} width={60} />
@@ -916,38 +1035,56 @@ export default function StockPageClient({
                     <th className="text-left text-xs text-gray-400 font-medium py-2.5 px-5 sticky left-0 bg-white min-w-[160px]">
                       Pokazatelj
                     </th>
-                    {years.map((yr) => (
-                      <th key={yr} className="text-right text-xs text-gray-400 font-medium py-2.5 px-4 min-w-[100px] tabular-nums">
-                        {yr}
-                      </th>
-                    ))}
-                    {nYears > 0 && (
-                      <th className="text-right text-xs text-gray-400 font-medium py-2.5 px-4 min-w-[80px] border-l border-gray-50">
-                        CAGR ({nYears}g)
-                      </th>
+                    {viewMode === 'quarterly' ? (
+                      qTableHeaders.map((h, i) => (
+                        <th key={i} className={`text-right text-xs font-medium py-2.5 px-4 min-w-[85px] tabular-nums ${
+                          h === 'TTM' ? 'bg-indigo-50/60 text-indigo-600 border-x border-indigo-100' : 'text-gray-400'
+                        }`}>
+                          {h}
+                        </th>
+                      ))
+                    ) : (
+                      <>
+                        {years.map((yr) => (
+                          <th key={yr} className="text-right text-xs text-gray-400 font-medium py-2.5 px-4 min-w-[100px] tabular-nums">
+                            {yr}
+                          </th>
+                        ))}
+                        {nYears > 0 && (
+                          <th className="text-right text-xs text-gray-400 font-medium py-2.5 px-4 min-w-[80px] border-l border-gray-50">
+                            CAGR ({nYears}g)
+                          </th>
+                        )}
+                      </>
                     )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50/70">
                   {activeRows.map((row, idx) => {
                     if (row.separator) {
-                      return <tr key={idx}><td colSpan={years.length + 2} className="py-0.5 bg-gray-50/40" /></tr>;
+                      return <tr key={idx}><td colSpan={99} className="py-0.5 bg-gray-50/40" /></tr>;
                     }
-                    const cagrVal = nYears > 0
+                    const isHighlight = highlightRows[tableTab]?.includes(row.label) ?? false;
+
+                    // CAGR only for annual view
+                    const cagrVal = viewMode === 'annual' && nYears > 0
                       ? cagr(row.values[0] ?? null, row.values[row.values.length - 1] ?? null, nYears)
                       : null;
-                    const isHighlight = highlightRows[tableTab]?.includes(row.label) ?? false;
+
                     return (
                       <tr key={row.label + idx} className={`hover:bg-blue-50/30 transition-colors ${isHighlight ? 'bg-blue-50/40' : ''}`}>
                         <td className={`text-xs py-2.5 px-5 sticky left-0 ${isHighlight ? 'bg-blue-50/40 font-semibold text-gray-900' : `bg-white ${row.bold ? 'font-semibold text-gray-900' : 'text-gray-600'}`}`}>
                           {row.label}
                         </td>
-                        {row.values.map((v, vi) => (
-                          <td key={vi} className={`text-xs text-right py-2.5 px-4 tabular-nums ${v !== null && v < 0 ? 'text-red-500' : 'text-gray-700'} ${row.bold || isHighlight ? 'font-semibold' : ''}`}>
-                            {formatCell(v, row.format)}
-                          </td>
-                        ))}
-                        {nYears > 0 && (
+                        {row.values.map((v, vi) => {
+                          const isTTM = viewMode === 'quarterly' && vi === 0 && ttm !== null;
+                          return (
+                            <td key={vi} className={`text-xs text-right py-2.5 px-4 tabular-nums ${v !== null && v < 0 ? 'text-red-500' : 'text-gray-700'} ${row.bold || isHighlight ? 'font-semibold' : ''} ${isTTM ? 'bg-indigo-50/60 border-x border-indigo-100' : ''}`}>
+                              {formatCell(v, row.format)}
+                            </td>
+                          );
+                        })}
+                        {viewMode === 'annual' && nYears > 0 && (
                           <td className="text-xs text-right py-2.5 px-4 tabular-nums border-l border-gray-50">
                             {cagrVal !== null ? (
                               <span className={`inline-flex items-center gap-0.5 font-medium ${cagrVal >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>

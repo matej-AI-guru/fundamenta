@@ -91,6 +91,7 @@ export type StockFinancials = {
   id: string;
   ticker: string;
   year: number;
+  period: string; // 'FY' | 'Q1' | 'Q2' | 'Q3' | 'Q4'
   // RDG
   revenue: number | null;
   ebit: number | null;

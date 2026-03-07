@@ -61,7 +61,7 @@ async function main() {
   const sb = getSupabaseAdmin();
   const { error } = await sb
     .from('stock_financials')
-    .upsert(allData, { onConflict: 'ticker,year' });
+    .upsert(allData, { onConflict: 'ticker,year,period' });
 
   if (error) {
     console.error('\nUpsert error:', error);

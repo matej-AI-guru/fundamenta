@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
       // Upsert to stock_financials
       const { error } = await supabaseAdmin
         .from('stock_financials')
-        .upsert(data, { onConflict: 'ticker,year' });
+        .upsert(data, { onConflict: 'ticker,year,period' });
 
       if (error) {
         console.error(`[xlsx] Upsert error for ${t}:`, error);

@@ -56,11 +56,11 @@ export async function POST(req: NextRequest) {
     }
 
     // Upsert historical financials into stock_financials
-    const historicalRows = stocks.flatMap(s => s._yearlyData ?? []);
+    const historicalRows = stocks.flatMap(s => (s._yearlyData ?? []).map(d => ({ ...d, period: 'FY' })));
     if (historicalRows.length > 0) {
       const { error: histErr } = await supabaseAdmin
         .from('stock_financials')
-        .upsert(historicalRows, { onConflict: 'ticker,year' });
+        .upsert(historicalRows, { onConflict: 'ticker,year,period' });
       if (histErr) console.error('stock_financials upsert error:', histErr);
     }
 
